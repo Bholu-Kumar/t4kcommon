@@ -17,9 +17,10 @@ find_package(LibXml2 REQUIRED)
 
 #Look here for headers
 include_directories(
-    ${SDL_INCLUDE_DIR}
-    ${SDLIMAGE_INCLUDE_DIR}
-    ${SDLMIXER_INCLUDE_DIR}
+    ${SDL3_INCLUDE_DIRS}
+    ${SDL3_IMAGE_INCLUDE_DIRS}
+    ${SDL3_TTF_INCLUDE_DIRS}
+    ${SDL3_MIXER_INCLUDE_DIRS}
     ${LIBXML2_INCLUDE_DIR}
     ${CMAKE_SOURCE_DIR}/gettext
     ${CMAKE_BINARY_DIR}
@@ -55,11 +56,10 @@ endif()
 
 #Depend on these libraries. For Pango or TTF, whichever is found will be used
 target_link_libraries(${LIB_NAME}
-    ${SDL_LIBRARY}
-    ${SDLMIXER_LIBRARY}
-    ${SDLIMAGE_LIBRARY}
-    ${SDLPANGO_LIBRARY}
-    ${SDLTTF_LIBRARY}
+    PkgConfig::SDL3
+    PkgConfig::SDL3_IMAGE
+    PkgConfig::SDL3_TTF
+    PkgConfig::SDL3_MIXER
     ${LIBXML2_LIBRARIES}
     ${LINEBREAK_BINARY_DIR}/liblinebreak.a
     )
@@ -92,12 +92,10 @@ set(T4K_TESTAPP t4k_test)
 add_executable(${T4K_TESTAPP} ${T4K_TEST_SOURCES})
 TARGET_LINK_LIBRARIES(${T4K_TESTAPP}
     ${LIB_NAME}
-    ${SDL_LIBRARY}
-    ${SDLMIX_LIBRARY}
-    ${SDLIMAGE_LIBRARY}
-    ${SDLNET_LIBRARY}
-    ${SDLPANGO_LIBRARY}
-    ${SDLTTF_LIBRARY}
+    PkgConfig::SDL3
+    PkgConfig::SDL3_IMAGE
+    PkgConfig::SDL3_TTF
+    PkgConfig::SDL3_MIXER
     ${LIBXML2_LIBRARIES}
     ${RSVG_LIBRARIES}
     ${LINEBREAK_BINARY_DIR}/liblinebreak.a

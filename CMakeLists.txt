@@ -21,23 +21,22 @@ if(CMAKE_BUILD_TYPE MATCHES Release)
     set(T4K_DEVELOPER_WARNINGS ON)
 endif()
 
-find_package(SDL REQUIRED)
-find_package(SDL_image REQUIRED)
-find_package(SDL_mixer REQUIRED)
-find_package(SDL_Pango)
-if (SDLPANGO_FOUND)
-    set(HAVE_LIBSDL_PANGO 1)
-else (SDLPANGO_FOUND)
-    find_package(SDL_ttf REQUIRED) # we prefer Pango but use SDL_ttf as a backup
-endif (SDLPANGO_FOUND)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(SDL3 REQUIRED IMPORTED_TARGET sdl3)
+pkg_check_modules(SDL3_IMAGE REQUIRED IMPORTED_TARGET sdl3-image)
+pkg_check_modules(SDL3_TTF REQUIRED IMPORTED_TARGET sdl3-ttf)
+pkg_check_modules(SDL3_MIXER REQUIRED IMPORTED_TARGET sdl3-mixer)
+pkg_check_modules(SDL3_NET IMPORTED_TARGET sdl3-net)
+
+if (SDL3_NET_FOUND)
+    set(HAVE_LIBSDL_NET 1)
+endif ()
 
 # needed for SVG loading and caching
 find_package(PNG)
 find_package(RSVG)
 set(HAVE_RSVG RSVG_FOUND)
 set(HAVE_LIBPNG PNG_FOUND)
-find_package(SDL_net)
-set(HAVE_LIBSDL_NET SDL_net_FOUND)
 
 message("SDL_Pango:  ${SDLPANGO_FOUND}")
 
@@ -70,6 +69,6 @@ include(CPack)
 # required for t4k_common.pc.in to generate a working t4k_common.pc
 # We should make these variables reflect what libs we actually found,
 # particularly SDL_Pango vs. SDL_ttf - DSB
-set(DEP_PKGS "sdl >= 1.2.0 SDL_image SDL_Pango librsvg-2.0 libxml-2.0") 
-set(DEP_LIBS "-lSDL_mixer -lSDL_net") 
+set(DEP_PKGS "sdl3 sdl3-image sdl3-ttf sdl3-mixer librsvg-2.0 libxml-2.0") 
+set(DEP_LIBS "") 
 set(DEP_LIBS_PRIVATE "-mwindows -lmikmod -lsmpeg -lstdc++ -lmingw32 -lSDLmain -liconv -luser32 -lgdi32 -lwinmm -ldxguid -lSDL -lpthread -lvorbisfile -lvorbis -lm -logg -lfreetype") 
