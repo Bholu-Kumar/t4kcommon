@@ -41,29 +41,25 @@ add_definitions(
     -Dset_relocation_prefix=liblinebreak_set_relocation_prefix
     -Drelocate=liblinebreak_relocate
     -DDEPENDS_ON_LIBICONV=1
+    -DGNULIB_UNISTR_U8_MBTOUC_UNSAFE=1
     )
     
-if (APPLE)
-set_directory_properties(PROPERTIES COMPILE_DEFINITIONS
-	LOCALEDIR='\"${LOCALE_DIR}\"'        	
-	LOCALE_ALIAS_PATH='\"${LOCALE_DIR}\"'
-	LIBDIR='\"${TOP_SRC_DIR}\"'
-	INSTALLDIR='\"${PREFIX}\"' 
-	)
+if(NOT LOCALE_DIR)
+  set(LOCALE_DIR "/usr/local/share/locale")
+endif()
+if(NOT TOP_SRC_DIR)
+  set(TOP_SRC_DIR "/usr/local")
+endif()
+if(NOT PREFIX)
+  set(PREFIX "/usr/local")
+endif()
+
 add_definitions(
-		-DLOCALEDIR='\"${LOCALE_DIR}\"' 
-		-DLOCALE_ALIAS_PATH='\"${LOCALE_DIR}\"'
-		-DLIBDIR='\"${TOP_SRC_DIR}\"'
-		-DINSTALLDIR='\"${PREFIX}\"' 
-		)
-else (APPLE)
-add_definitions(
-		-DLOCALEDIR=\\"${LOCALE_DIR}\\" 
-		-DLOCALE_ALIAS_PATH=\\"${LOCALE_DIR}\\"
-		-DLIBDIR=\\"${TOP_SRC_DIR}\\"
-		-DINSTALLDIR=\\"${PREFIX}\\" 
-		)
-endif (APPLE)
+  -DLOCALEDIR="${LOCALE_DIR}"
+  -DLOCALE_ALIAS_PATH="${LOCALE_DIR}"
+  -DLIBDIR="${TOP_SRC_DIR}"
+  -DINSTALLDIR="${PREFIX}"
+)
 
 file(GLOB_RECURSE LINEBREAK_HEADERS ${LINEBREAK_SOURCE_DIR} *.h)
 file(GLOB_RECURSE LINEBREAK_SOURCES ${LINEBREAK_SOURCE_DIR} *.c)
