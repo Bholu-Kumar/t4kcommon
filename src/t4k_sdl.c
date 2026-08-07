@@ -1276,7 +1276,7 @@ static int Set_SDL_Pango_Font_Size(int size);
 
 /*-- file-scope variables and local file prototypes for SDL_ttf-based code: */
 #else
-#include "SDL_ttf.h"
+#include <SDL3_ttf/SDL_ttf.h>
 /* We cache fonts here once loaded to improve performance: */
 TTF_Font* font_list[MAX_FONT_SIZE + 1] = {NULL};
 static void free_font_list(void);

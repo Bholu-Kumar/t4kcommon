@@ -28,7 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "t4k_globals.h"
 
 #ifdef HAVE_LIBSDL_NET
-#include "SDL_net.h"
+#include <SDL3_net/SDL_net.h>
 #endif
 
 int debug_status;
