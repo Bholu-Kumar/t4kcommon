@@ -569,6 +569,43 @@ void T4K_UnloadMenus( void );
 //!
 SDL_Surface* T4K_GetScreen( void );
 
+//============================================================================== 
+//
+//  T4K_GetWindow
+//
+//! \brief
+//!     Return the SDL_Window created during initialization.
+//!
+//! \return
+//!     The application's SDL_Window pointer.
+//!
+SDL_Window* T4K_GetWindow( void );
+
+//============================================================================== 
+//
+//  T4K_GetRenderer
+//
+//! \brief
+//!     Return the SDL_Renderer created during initialization.
+//!
+//! \return
+//!     The application's SDL_Renderer pointer.
+//!
+SDL_Renderer* T4K_GetRenderer( void );
+
+//============================================================================== 
+//
+//  T4K_PresentScreen
+//
+//! \brief
+//!     Upload the software screen surface to the renderer and present it.
+//!     Replaces SDL_Flip() and SDL_UpdateRect(screen,...) from SDL 1.2.
+//!
+//! \return
+//!     None
+//!
+void T4K_PresentScreen( void );
+
 
 //============================================================================== 
 //

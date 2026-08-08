@@ -34,6 +34,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 SDL_Surface* screen = NULL;
 
+static SDL_Window*   sdl_window   = NULL;
+static SDL_Renderer* sdl_renderer = NULL;
+
 static ResSwitchCallback res_switch_callback = NULL;
 static ResSwitchCallback internal_res_switch_callback = NULL;
 
@@ -60,17 +63,39 @@ const char* T4K_AskFontName()
 
 /*
    Return a pointer to the screen we're using, as an alternative to making screen
-   global. Not sure what is involved performance-wise in SDL_GetVideoSurface,
-   or if this check is even necessary -Cheez
+   global. In SDL3, there is no SDL_GetVideoSurface(); screen is a software
+   render-target surface managed by this module.
    */
-SDL_Surface* T4K_GetScreen()
+SDL_Surface* T4K_GetScreen(void)
 {
-    if (screen != SDL_GetVideoSurface() )
-    {
-	fprintf(stderr, "Video Surface changed from outside of SDL_Extras!\n");
-	screen = SDL_GetVideoSurface();
-    }
     return screen;
+}
+
+SDL_Window* T4K_GetWindow(void)
+{
+    return sdl_window;
+}
+
+SDL_Renderer* T4K_GetRenderer(void)
+{
+    return sdl_renderer;
+}
+
+/* Upload the software screen surface to a texture and present it.
+   This replaces SDL_Flip() and SDL_UpdateRect(screen,...) from SDL 1.2. */
+void T4K_PresentScreen(void)
+{
+    if (!sdl_renderer || !screen)
+        return;
+
+    SDL_Texture* tex = SDL_CreateTextureFromSurface(sdl_renderer, screen);
+    if (tex)
+    {
+        SDL_RenderClear(sdl_renderer);
+        SDL_RenderTexture(sdl_renderer, tex, NULL, NULL);
+        SDL_RenderPresent(sdl_renderer);
+        SDL_DestroyTexture(tex);
+    }
 }
 
 
@@ -519,31 +544,30 @@ void T4K_DarkenScreen(Uint8 bits)
 /* change window size (works only in windowed mode) */
 void T4K_ChangeWindowSize(int new_res_x, int new_res_y)
 {
-    SDL_Surface* oldscreen = screen;
-
-    if(!(screen->flags & SDL_FULLSCREEN))
+    Uint32 wflags = SDL_GetWindowFlags(sdl_window);
+    if(!(wflags & SDL_WINDOW_FULLSCREEN))
     {
-	screen = SDL_SetVideoMode(new_res_x,
-		new_res_y,
-		PIXEL_BITS,
-		SDL_SWSURFACE|SDL_HWPALETTE);
+	SDL_SetWindowSize(sdl_window, new_res_x, new_res_y);
+
+	/* Recreate the software screen surface at the new size */
+	if (screen)
+	    SDL_DestroySurface(screen);
+	screen = SDL_CreateSurface(new_res_x, new_res_y, SDL_PIXELFORMAT_RGBA32);
 
 	if(screen == NULL)
 	{
 	    fprintf(stderr,
 		    "\nError: I could not change screen mode into %d x %d.\n",
 		    new_res_x, new_res_y);
-	    screen = oldscreen;
 	}
 	else
 	{
 	    DEBUGMSG(debug_sdl, "T4K_ChangeWindowSize(): Changed window size to %d x %d\n", screen->w, screen->h);
-	    oldscreen = NULL;
 	    win_res_x = screen->w;
 	    win_res_y = screen->h;
 	    if (res_switch_callback)
 		res_switch_callback(win_res_x, win_res_y);
-	    SDL_UpdateRect(screen, 0, 0, 0, 0);
+	    T4K_PresentScreen();
 	}
     }
     else
@@ -553,13 +577,19 @@ void T4K_ChangeWindowSize(int new_res_x, int new_res_y)
 /* switch between fullscreen and windowed mode */
 void T4K_SwitchScreenMode(void)
 {
-    int window = (screen->flags & SDL_FULLSCREEN);
-    SDL_Surface* oldscreen = screen;
+    Uint32 wflags = SDL_GetWindowFlags(sdl_window);
+    bool currently_fullscreen = (wflags & SDL_WINDOW_FULLSCREEN) != 0;
 
-    screen = SDL_SetVideoMode(window ? win_res_x : fs_res_x,
-	    window ? win_res_y : fs_res_y,
-	    PIXEL_BITS,
-	    screen->flags ^ SDL_FULLSCREEN);
+    SDL_SetWindowFullscreen(sdl_window,
+        currently_fullscreen ? 0 : SDL_WINDOW_FULLSCREEN);
+
+    /* Get the new window size and recreate the screen surface */
+    int new_w, new_h;
+    SDL_GetWindowSize(sdl_window, &new_w, &new_h);
+
+    if (screen)
+	SDL_DestroySurface(screen);
+    screen = SDL_CreateSurface(new_w, new_h, SDL_PIXELFORMAT_RGBA32);
 
     if (screen == NULL)
     {
@@ -567,21 +597,18 @@ void T4K_SwitchScreenMode(void)
 		"\nError: I could not switch to %s mode.\n"
 		"The Simple DirectMedia error that occured was:\n"
 		"%s\n\n",
-		window ? "windowed" : "fullscreen",
+		currently_fullscreen ? "windowed" : "fullscreen",
 		SDL_GetError());
-	screen = oldscreen;
     }
     else
     {
-	//success, no need to free the old video surface
-	DEBUGMSG(debug_sdl, "Switched screen mode to %s\n", window ? "windowed" : "fullscreen");
-	oldscreen = NULL;
+	DEBUGMSG(debug_sdl, "Switched screen mode to %s\n", currently_fullscreen ? "windowed" : "fullscreen");
 	if (res_switch_callback)
 	    res_switch_callback(screen->w, screen->h);
 	if (internal_res_switch_callback)
 	    internal_res_switch_callback(screen->w, screen->h);
 
-	SDL_UpdateRect(screen, 0, 0, 0, 0);
+	T4K_PresentScreen();
     }
 }
 
@@ -824,7 +851,7 @@ int T4K_TransWipe(const SDL_Surface* newbkg, WipeStyle type, int segments, int d
 			T4K_AddRect(&src, &src);
 			T4K_AddRect(&dst, &dst);
 		    }
-		    SDL_Flip(screen);
+		    T4K_PresentScreen();
 		    SDL_Delay(10);
 		}
 
@@ -833,7 +860,7 @@ int T4K_TransWipe(const SDL_Surface* newbkg, WipeStyle type, int segments, int d
 		src.w = screen->w;
 		src.h = screen->h;
 		SDL_BlitSurface((SDL_Surface*)newbkg, NULL, screen, &src);
-		SDL_Flip(screen);
+		T4K_PresentScreen();
 
 		break;
 	    }
@@ -864,7 +891,7 @@ int T4K_TransWipe(const SDL_Surface* newbkg, WipeStyle type, int segments, int d
 			T4K_AddRect(&src, &src);
 			T4K_AddRect(&dst, &dst);
 		    }
-		    SDL_Flip(screen);
+		    T4K_PresentScreen();
 		    SDL_Delay(10);
 		}
 
@@ -873,7 +900,7 @@ int T4K_TransWipe(const SDL_Surface* newbkg, WipeStyle type, int segments, int d
 		src.w = screen->w;
 		src.h = screen->h;
 		SDL_BlitSurface((SDL_Surface*)newbkg, NULL, screen, &src);
-		SDL_Flip(screen);
+		T4K_PresentScreen();
 
 		break;
 	    }
@@ -917,7 +944,7 @@ int T4K_TransWipe(const SDL_Surface* newbkg, WipeStyle type, int segments, int d
 			T4K_AddRect(&src, &src);
 			T4K_AddRect(&dst, &dst);
 		    }
-		    SDL_Flip(screen);
+		    T4K_PresentScreen();
 		    SDL_Delay(10);
 		}
 
@@ -926,7 +953,7 @@ int T4K_TransWipe(const SDL_Surface* newbkg, WipeStyle type, int segments, int d
 		src.w = screen->w;
 		src.h = screen->h;
 		SDL_BlitSurface((SDL_Surface*)newbkg, NULL, screen, &src);
-		SDL_Flip(screen);
+		T4K_PresentScreen();
 
 		break;
 	    }

@@ -909,7 +909,7 @@ int T4K_RunMenu(int index, bool return_choice, void (*draw_background)(), int (*
 			    SDL_Rect pos = {T4K_GetScreen()->w * desc_panel_pos[0], T4K_GetScreen()->h * desc_panel_pos[1]};
 			    SDL_BlitSurface(desc_panel, NULL, T4K_GetScreen(), &pos);
 			    SDL_BlitSurface(desc_prerendered, NULL, T4K_GetScreen(), &pos);
-			    SDL_Flip(T4K_GetScreen());
+			    T4K_PresentScreen();
 			}
 
 		    }
@@ -1065,7 +1065,7 @@ int T4K_RunMenu(int index, bool return_choice, void (*draw_background)(), int (*
 		SDL_Rect pos = {T4K_GetScreen()->w * desc_panel_pos[0], T4K_GetScreen()->h * desc_panel_pos[1]};
 		SDL_BlitSurface(desc_panel, NULL, T4K_GetScreen(), &pos);
 		SDL_BlitSurface(desc_prerendered, NULL, T4K_GetScreen(), &pos);
-		SDL_Flip(T4K_GetScreen());
+		T4K_PresentScreen();
 	    }
 
 	    /* Wait so we keep frame rate constant: */
