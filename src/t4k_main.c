@@ -30,7 +30,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "t4k_globals.h"
 
 #if defined(HAVE_LIBSDL_NET) && HAVE_LIBSDL_NET
+#if __has_include(<SDL3_net/SDL_net.h>)
 #include <SDL3_net/SDL_net.h>
+#elif __has_include(<SDL3/SDL_net.h>)
+#include <SDL3/SDL_net.h>
+#elif __has_include(<SDL_net.h>)
+#include <SDL_net.h>
+#endif
 #endif
 
 int debug_status;
@@ -77,12 +83,14 @@ int InitT4KCommon(int debug_flags)
     }
 
 #if defined(HAVE_LIBSDL_NET) && HAVE_LIBSDL_NET
+#if defined(SDL_NET_H_) || defined(SDL_NET_H) || defined(_SDL_NET_H)
     /* Networking: */
     if (!SDLNet_Init())
     {
         fprintf(stderr, "SDLNet_Init: %s\n", SDL_GetError());
 	return 0;
     }
+#endif
 #endif
 
     /* Seed random-number generator: */
@@ -103,8 +111,10 @@ void CleanupT4KCommon(void)
     T4K_Cleanup_SDL_Text();
     
 #if defined(HAVE_LIBSDL_NET) && HAVE_LIBSDL_NET
+#if defined(SDL_NET_H_) || defined(SDL_NET_H) || defined(_SDL_NET_H)
     /* Quit networking if appropriate: */
     SDLNet_Quit();
+#endif
 #endif
 
     // Finally, quit SDL

@@ -68,7 +68,8 @@ target_link_libraries(${LIB_NAME}
     )
 
 if(SDL3_NET_FOUND)
-    target_link_libraries(${LIB_NAME} PkgConfig::SDL3_NET)
+    link_directories(${SDL3_NET_LIBRARY_DIRS})
+    target_link_libraries(${LIB_NAME} ${SDL3_NET_LIBRARIES})
 endif()
 
 t4k_include_definition(HAVE_LIBSDL_PANGO)
