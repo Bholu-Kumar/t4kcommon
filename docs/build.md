@@ -1,27 +1,96 @@
-## To build tux4common on Ubuntu 22.04
+# Building t4kcommon (SDL3 Branch)
 
-### Tools : Autoconf, Automake and Autopoint
+## Prerequisites & Dependencies
 
-`sudo apt install autoconf automake autopoint`
+### 1. System Packages & Tools
 
-### Libraries:
+Run the following command to install required build tools and core dependencies:
 
-1. GetText: `sudo apt-get install gettext-dev`
-2. SDL: `sudo apt-get install libsdl1.2-dev`
-3. Libtool: `sudo apt-get install libtool`
-4. SDL Image: `sudo apt-get install libsdl-image1.2-dev`
-5. SDL Mixer: `sudo apt-get install libsdl-mixer1.2-dev`
-6. SDL Pango: `sudo apt-get install libsdl-pango-dev`
-7. SDL Net: `sudo apt-get install libsdl-net1.2-dev`
-8. RSVG: `sudo apt-get install librsvg2-dev`
-9. XML: `sudo apt-get install libxml2-dev`
-10. ESpeak: `sudo apt-get install libespeak-dev`
+```bash
+sudo apt update
+sudo apt install -y build-essential cmake pkg-config gettext libtool \
+                    librsvg2-dev libxml2-dev libespeak-ng-dev
+```
 
-Once you have installed these libraries, you can use the following commands to build tux4common:
+---
 
-1. `mkdir build`
-2. `cd build`
-3. `autoconf -if ..`
-4. `../configure`
-5. `make`
-6. `sudo make install`
+### 2. Installing SDL3 & Satellite Libraries
+
+If your package manager does not provide SDL3 packages, install SDL3 and satellite libraries from source:
+
+#### A. SDL3 Core
+```bash
+git clone https://github.com/libsdl-org/SDL.git -b main
+cd SDL
+cmake -B build
+cmake --build build
+sudo cmake --install build
+cd ..
+```
+
+#### B. SDL3_image
+```bash
+git clone https://github.com/libsdl-org/SDL_image.git -b main
+cd SDL_image
+cmake -B build
+cmake --build build
+sudo cmake --install build
+cd ..
+```
+
+#### C. SDL3_ttf
+```bash
+git clone https://github.com/libsdl-org/SDL_ttf.git -b main
+cd SDL_ttf
+cmake -B build
+cmake --build build
+sudo cmake --install build
+cd ..
+```
+
+#### D. SDL3_mixer
+```bash
+git clone https://github.com/libsdl-org/SDL_mixer.git -b main
+cd SDL_mixer
+cmake -B build
+cmake --build build
+sudo cmake --install build
+cd ..
+```
+
+#### E. SDL3_net
+```bash
+git clone https://github.com/libsdl-org/SDL_net.git -b main
+cd SDL_net
+cmake -B build
+cmake --build build
+sudo cmake --install build
+cd ..
+```
+
+*Note: Run `sudo ldconfig` after installing shared libraries to update system linker caches.*
+
+```bash
+sudo ldconfig
+```
+
+---
+
+## Build & Install `t4kcommon`
+
+Using **CMake**:
+
+```bash
+# 1. Create build directory
+mkdir -p build
+cd build
+
+# 2. Configure project
+PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH cmake ..
+
+# 3. Compile library and test suite
+cmake --build .
+
+# 4. Install library to system
+sudo cmake --install .
+```

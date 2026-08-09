@@ -63,6 +63,37 @@
 #include <SDL3_image/SDL_image.h>
 #include <SDL3_mixer/SDL_mixer.h>
 
+typedef MIX_Audio Mix_Chunk;
+typedef MIX_Audio Mix_Music;
+
+#define Mix_CloseAudio() MIX_Quit()
+
+#ifdef SDL_FreeSurface
+#undef SDL_FreeSurface
+#endif
+#define SDL_FreeSurface(surf) SDL_DestroySurface(surf)
+
+#ifdef SDL_MapRGB
+#undef SDL_MapRGB
+#endif
+#define SDL_MapRGB(fmt, r, g, b) SDL_MapRGB(SDL_GetPixelFormatDetails(fmt), NULL, (r), (g), (b))
+
+#ifdef SDL_MapRGBA
+#undef SDL_MapRGBA
+#endif
+#define SDL_MapRGBA(fmt, r, g, b, a) SDL_MapRGBA(SDL_GetPixelFormatDetails(fmt), NULL, (r), (g), (b), (a))
+
+#ifdef SDL_GetRGB
+#undef SDL_GetRGB
+#endif
+#define SDL_GetRGB(pixel, fmt, r, g, b) SDL_GetRGB((pixel), SDL_GetPixelFormatDetails(fmt), NULL, (r), (g), (b))
+
+#ifdef SDL_GetRGBA
+#undef SDL_GetRGBA
+#endif
+#define SDL_GetRGBA(pixel, fmt, r, g, b, a) SDL_GetRGBA((pixel), SDL_GetPixelFormatDetails(fmt), NULL, (r), (g), (b), (a))
+
+
 //TTS Macros
 #define DEFAULT_VALUE 30
 #define INTERRUPT 0
@@ -569,6 +600,43 @@ void T4K_UnloadMenus( void );
 //!
 SDL_Surface* T4K_GetScreen( void );
 
+//============================================================================== 
+//
+//  T4K_GetWindow
+//
+//! \brief
+//!     Return the SDL_Window created during initialization.
+//!
+//! \return
+//!     The application's SDL_Window pointer.
+//!
+SDL_Window* T4K_GetWindow( void );
+
+//============================================================================== 
+//
+//  T4K_GetRenderer
+//
+//! \brief
+//!     Return the SDL_Renderer created during initialization.
+//!
+//! \return
+//!     The application's SDL_Renderer pointer.
+//!
+SDL_Renderer* T4K_GetRenderer( void );
+
+//============================================================================== 
+//
+//  T4K_PresentScreen
+//
+//! \brief
+//!     Upload the software screen surface to the renderer and present it.
+//!     Replaces SDL_Flip() and SDL_UpdateRect(screen,...) from SDL 1.2.
+//!
+//! \return
+//!     None
+//!
+void T4K_PresentScreen( void );
+
 
 //============================================================================== 
 //
@@ -954,7 +1022,7 @@ void T4K_OnResolutionSwitch( ResSwitchCallback callback );
 //! \return 
 //!     The event type received.
 //!
-SDL_EventType T4K_WaitForEvent( SDL_EventMask events );
+SDL_EventType T4K_WaitForEvent( Uint32 event_type_mask );
 
 //==============================================================================
 //

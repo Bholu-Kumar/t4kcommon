@@ -100,7 +100,7 @@ int T4K_Tts_set_voice(char voice_name[]){
 void T4K_Tts_stop(){
 	if (tts_thread)
 	{
-		SDL_KillThread(tts_thread);
+		SDL_WaitThread(tts_thread, NULL);
 		tts_thread = NULL;
 		espeak_Cancel();
 	}
@@ -153,7 +153,7 @@ void T4K_Tts_say(int rate,int pitch,int mode, const char* text, ...){
 	data_to_pass.mode = mode;
 	
 	//Calling threded function to say.	
-	tts_thread = SDL_CreateThread(tts_thread_func, &data_to_pass);
+	tts_thread = SDL_CreateThread(tts_thread_func, "tts_worker", &data_to_pass);
 	}
 }	
 
@@ -161,7 +161,7 @@ void T4K_Tts_say(int rate,int pitch,int mode, const char* text, ...){
 
 
 
-#else
+#elif defined(HAVE_LIBSPEECHD)
 
 #include <libspeechd.h>
 
@@ -235,6 +235,7 @@ int T4K_Tts_init()
 		spd_set_notification_on(spd_connection, SPD_END);
 		return 1;
 	}
+	return 0;
 }
 
 /*Used to set person in TTS. in the case of espeak we will set 
@@ -253,7 +254,7 @@ int T4K_Tts_set_voice(char voice_name[]){
 void T4K_Tts_stop(){
 	if (tts_thread)
 	{
-		SDL_KillThread(tts_thread);
+		SDL_WaitThread(tts_thread, NULL);
 		tts_thread = NULL;
 		spd_cancel(spd_connection);
 		text_to_speech_speaking = 1;
@@ -313,9 +314,20 @@ void T4K_Tts_say(int rate,int pitch,int mode, const char* text, ...){
 	data_to_pass.mode = mode;
 	
 	//Calling threded function to say.	
-	tts_thread = SDL_CreateThread(tts_thread_func, &data_to_pass);
+	tts_thread = SDL_CreateThread(tts_thread_func, "tts_worker", &data_to_pass);
 	}
 }	
 
+#else
+
+int T4K_Tts_init(void) { return 0; }
+int T4K_Tts_set_voice(char voice_name[]) { (void)voice_name; return 0; }
+void T4K_Tts_stop(void) {}
+void T4K_Tts_set_volume(int volume) { (void)volume; }
+void T4K_Tts_set_rate(int rate) { (void)rate; }
+void T4K_Tts_set_pitch(int pitch) { (void)pitch; }
+void T4K_Tts_say(int rate, int pitch, int mode, const char* text, ...) { (void)rate; (void)pitch; (void)mode; (void)text; }
+void T4K_Tts_cancel(void) {}
+void T4K_Tts_wait(void) {}
 
 #endif

@@ -47,6 +47,9 @@
 //!     See COPYING file that comes with this distribution.
 //!
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "config.h"
 #include "t4k_common.h"
 

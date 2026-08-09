@@ -30,6 +30,8 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/src/linebreak
     )
 
+link_directories(/usr/local/lib)
+
 #Look here for optional headers
 t4k_include_directory(SDLPANGO)
 t4k_include_directory(SDLTTF)
