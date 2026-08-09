@@ -24,6 +24,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 
 
+#include <stdio.h>
+#include <stdlib.h>
 #include "t4k_common.h"
 #include "t4k_globals.h"
 
@@ -93,17 +95,8 @@ int InitT4KCommon(int debug_flags)
 
 void CleanupT4KCommon(void)
 {
-    int frequency, channels, n_timesopened;
-    Uint16 format;
-
-    // Close the audio mixer. We have to do this at least as many times
-    // as it was opened.
-    n_timesopened = Mix_QuerySpec(&frequency, &format, &channels);
-    while (n_timesopened)
-    {
-	Mix_CloseAudio();
-	n_timesopened--;
-    }
+    // Close the audio mixer.
+    Mix_CloseAudio();
     
     T4K_UnloadMenus();
     // Unload SDL_Pango or SDL_ttf:
@@ -123,10 +116,10 @@ int T4K_HandleStdEvents (const SDL_Event* event)
 {
     int ret = 0;
 
-    if (event->type != SDL_KEYDOWN)
+    if (event->type != SDL_EVENT_KEY_DOWN)
 	return 0;
 
-    SDLKey key = event->key.keysym.sym;
+    SDL_Keycode key = event->key.key;
 
     /* Toggle screen mode: */
     if (key == SDLK_F10)

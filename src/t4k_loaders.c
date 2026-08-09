@@ -309,21 +309,7 @@ SDL_Surface* render_svg_from_handle(RsvgHandle* file_handle, int width, int heig
 	scale_y = (float)height / dimensions.height;
     }
 
-    /* set color masks */
-    Rmask = T4K_GetScreen()->format->Rmask;
-    Gmask = T4K_GetScreen()->format->Gmask;
-    Bmask = T4K_GetScreen()->format->Bmask;
-    if(T4K_GetScreen()->format->Amask == 0)
-	/* find a free byte to use for Amask */
-	Amask = ~(Rmask | Gmask | Bmask);
-    else
-	Amask = T4K_GetScreen()->format->Amask;
-
-    DEBUGMSG(debug_loaders, "render_svg_from_handle(): color masks: R=%u, G=%u, B=%u, A=%u\n",
-	    Rmask, Gmask, Bmask, Amask);
-
-    dest = SDL_CreateRGBSurface(SDL_SWSURFACE | SDL_SRCALPHA,
-	    width, height, T4K_GetScreen()->format->BitsPerPixel, Rmask, Gmask, Bmask, Amask);
+    dest = SDL_CreateSurface(width, height, SDL_PIXELFORMAT_RGBA32);
 
     SDL_LockSurface(dest);
     temp_surf = cairo_image_surface_create_for_data(dest->pixels,
@@ -621,22 +607,22 @@ SDL_Surface* set_format(SDL_Surface* img, int mode)
 	case IMG_REGULAR:
 	    {
 		DEBUGMSG(debug_loaders, "set_format(): handling IMG_REGULAR mode.\n");
-		return SDL_DisplayFormat(img);
+		return SDL_ConvertSurface(img, SDL_PIXELFORMAT_RGB24);
 	    }
 
 	case IMG_ALPHA:
 	    {
 		DEBUGMSG(debug_loaders, "set_format(): handling IMG_ALPHA mode.\n");
-		return SDL_DisplayFormatAlpha(img);
+		return SDL_ConvertSurface(img, SDL_PIXELFORMAT_RGBA32);
 	    }
 
 	case IMG_COLORKEY:
 	    {
 		DEBUGMSG(debug_loaders, "set_format(): handling IMG_COLORKEY mode.\n");
 		SDL_LockSurface(img);
-		SDL_SetColorKey(img, (SDL_SRCCOLORKEY | SDL_RLEACCEL),
+		SDL_SetSurfaceColorKey(img, true,
 			SDL_MapRGB(img->format, 255, 255, 0));
-		return SDL_DisplayFormat(img);
+		return SDL_ConvertSurface(img, SDL_PIXELFORMAT_RGBA32);
 	    }
 
 	default:
@@ -666,8 +652,8 @@ SDL_Surface* T4K_LoadBkgd(const char* file_name, int width, int height)
     }
 
     /* turn off transparency, since it's the background */
-    SDL_SetAlpha(orig, SDL_RLEACCEL, SDL_ALPHA_OPAQUE);
-    final_pic = SDL_DisplayFormat(orig); /* optimize the format */
+    SDL_SetSurfaceBlendMode(orig, SDL_BLENDMODE_NONE);
+    final_pic = SDL_ConvertSurface(orig, SDL_PIXELFORMAT_RGB24); /* optimize the format */
     SDL_FreeSurface(orig);
 
     return final_pic;
@@ -1046,7 +1032,7 @@ static int do_png_save(FILE * fi, const char *const fname, SDL_Surface * surf)
     Uint8 r, g, b, a;
     int x, y, count;
     Uint32(*getpixel) (SDL_Surface *, int, int) =
-	getpixels[surf->format->BytesPerPixel];
+	getpixels[SDL_BYTESPERPIXEL(surf->format)];
 
 
     png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
@@ -1171,7 +1157,7 @@ Mix_Chunk* T4K_LoadSound( char *datafile )
     char fn[T4K_PATH_MAX];
 
     sprintf(fn, SOUNDS_DIR "/%s", datafile);
-    tempChunk = Mix_LoadWAV(fn);
+    tempChunk = MIX_LoadAudio(NULL, fn, false);
     if (!tempChunk)
     {
 	fprintf(stderr, "T4K_LoadSound(): %s not found\n\n", fn);
@@ -1196,12 +1182,12 @@ Mix_Music* T4K_LoadMusic(char *datafile )
 	return NULL;
     }
 
-    tempMusic = Mix_LoadMUS(fn);
+    tempMusic = MIX_LoadAudio(NULL, fn, false);
 
     if (!tempMusic)
     {
 	fprintf(stderr, "T4K_LoadMusic(): %s not loaded successfully\n", fn);
-	printf("Error was: %s\n\n", Mix_GetError());
+	printf("Error was: %s\n\n", SDL_GetError());
     }
     return tempMusic;
 }

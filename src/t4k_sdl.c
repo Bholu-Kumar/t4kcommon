@@ -28,6 +28,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "t4k_common.h"
 #include "t4k_globals.h"
@@ -150,16 +152,10 @@ void T4K_DrawButtonOn(SDL_Surface* target,
 SDL_Surface* T4K_CreateButton(int w, int h, int radius,
 	Uint8 r, Uint8 g, Uint8 b, Uint8 a)
 {
-    /* NOTE - we use a 32-bit temp surface even if we have a 16-bit */
-    /* screen - it gets converted during blitting.                  */
-    SDL_Surface* tmp_surf = SDL_CreateRGBSurface(SDL_SWSURFACE|SDL_SRCALPHA,
-	    w,
-	    h,
-	    32,
-	    rmask, gmask, bmask, amask);
+    SDL_Surface* tmp_surf = SDL_CreateSurface(w, h, SDL_PIXELFORMAT_RGBA32);
 
     Uint32 color = SDL_MapRGBA(tmp_surf->format, r, g, b, a);
-    SDL_FillRect(tmp_surf, NULL, color);
+    SDL_FillSurfaceRect(tmp_surf, NULL, color);
     T4K_RoundCorners(tmp_surf, radius);
     return tmp_surf;
 }
@@ -178,7 +174,10 @@ void T4K_RoundCorners(SDL_Surface* s, Uint16 radius)
     if (SDL_LockSurface(s) == -1)
 	return;
 
-    bytes_per_pix = s->format->BytesPerPixel;
+    const SDL_PixelFormatDetails *details = SDL_GetPixelFormatDetails(s->format);
+    if (!details)
+	return;
+    bytes_per_pix = details->bytes_per_pixel;
     if (bytes_per_pix != 4)
 	return;
 
@@ -188,8 +187,7 @@ void T4K_RoundCorners(SDL_Surface* s, Uint16 radius)
     if (radius > (s->h)/2)
 	radius = (s->h)/2;
 
-
-    alpha_mask = s->format->Amask;
+    alpha_mask = details->Amask;
 
     /* Now round off corners: */
     /* upper left:            */
@@ -275,31 +273,11 @@ note: you can have it flip both
 SDL_Surface* T4K_Flip( SDL_Surface *in, int x, int y ) {
     SDL_Surface *out, *tmp;
     SDL_Rect from_rect, to_rect;
-    Uint32        flags;
-    Uint32  colorkey=0;
+    Uint32 colorkey = 0;
+    bool has_colorkey = SDL_GetSurfaceColorKey(in, &colorkey);
 
-    /* --- grab the settings for the incoming pixmap --- */
-
-    SDL_LockSurface(in);
-    flags = in->flags;
-
-    /* --- change in's flags so ignore colorkey & alpha --- */
-
-    if (flags & SDL_SRCCOLORKEY) {
-	in->flags &= ~SDL_SRCCOLORKEY;
-	colorkey = in->format->colorkey;
-    }
-    if (flags & SDL_SRCALPHA) {
-	in->flags &= ~SDL_SRCALPHA;
-    }
-
-    SDL_UnlockSurface(in);
-
-    /* --- create our new surface --- */
-
-    out = SDL_CreateRGBSurface(
-	    SDL_SWSURFACE,
-	    in->w, in->h, 32, rmask, gmask, bmask, amask);
+    out = SDL_CreateSurface(in->w, in->h, SDL_PIXELFORMAT_RGBA32);
+    if (!out) return NULL;
 
     /* --- flip horizontally if requested --- */
 
@@ -335,28 +313,17 @@ SDL_Surface* T4K_Flip( SDL_Surface *in, int x, int y ) {
 
     /* --- restore colorkey & alpha on in and setup out the same --- */
 
-    SDL_LockSurface(in);
-
-    if (flags & SDL_SRCCOLORKEY) {
-	in->flags |= SDL_SRCCOLORKEY;
-	in->format->colorkey = colorkey;
-	tmp = SDL_DisplayFormat(out);
+    if (has_colorkey) {
+	SDL_SetSurfaceColorKey(in, true, colorkey);
+	tmp = SDL_ConvertSurface(out, SDL_PIXELFORMAT_RGBA32);
 	SDL_FreeSurface(out);
 	out = tmp;
-	out->flags |= SDL_SRCCOLORKEY;
-	out->format->colorkey = colorkey;
-    } else if (flags & SDL_SRCALPHA) {
-	in->flags |= SDL_SRCALPHA;
-	tmp = SDL_DisplayFormatAlpha(out);
-	SDL_FreeSurface(out);
-	out = tmp;
+	SDL_SetSurfaceColorKey(out, true, colorkey);
     } else {
-	tmp = SDL_DisplayFormat(out);
+	tmp = SDL_ConvertSurface(out, SDL_PIXELFORMAT_RGBA32);
 	SDL_FreeSurface(out);
 	out = tmp;
     }
-
-    SDL_UnlockSurface(in);
 
     return out;
 }
@@ -370,7 +337,7 @@ SDL_Surface* T4K_Flip( SDL_Surface *in, int x, int y ) {
    generalized to other image types. */
 SDL_Surface* T4K_Blend(SDL_Surface *S1, SDL_Surface *S2, float gamma)
 {
-    SDL_PixelFormat *fmt1, *fmt2;
+    SDL_PixelFormat fmt1, fmt2;
     Uint8 r1, r2, g1, g2, b1, b2, a1, a2;
     SDL_Surface *tmpS, *ret;
     Uint32 *cpix1, *epix1, *cpix2, *epix2;
@@ -379,29 +346,29 @@ SDL_Surface* T4K_Blend(SDL_Surface *S1, SDL_Surface *S2, float gamma)
     if (!S1)
 	return NULL;
 
-    fmt1 = fmt2 = NULL;
+    fmt1 = fmt2 = SDL_PIXELFORMAT_UNKNOWN;
     tmpS = ret = NULL;
 
     gamflip = 1.0 - gamma;
     if (gamma < 0 || gamflip < 0)
     {
-	perror("gamma must be between 0 and 1");
+	fprintf(stderr, "gamma must be between 0 and 1\n");
 	exit(0);
     }
 
     fmt1 = S1->format;
 
-    if (fmt1 && fmt1->BitsPerPixel != 32)
+    if (SDL_BITSPERPIXEL(fmt1) != 32)
     {
-	perror("This works only with RGBA images");
+	fprintf(stderr, "This works only with RGBA images\n");
 	return S1;
     }
     if (S2 != NULL)
     {
 	fmt2 = S2->format;
-	if (fmt2->BitsPerPixel != 32)
+	if (SDL_BITSPERPIXEL(fmt2) != 32)
 	{
-	    perror("This works only with RGBA images");
+	    fprintf(stderr, "This works only with RGBA images\n");
 	    return S1;
 	}
 	// Check that both images have the same width dimension
@@ -414,15 +381,15 @@ SDL_Surface* T4K_Blend(SDL_Surface *S1, SDL_Surface *S2, float gamma)
 	}
     }
 
-    tmpS = SDL_ConvertSurface(S1, fmt1, SDL_SWSURFACE);
+    tmpS = SDL_ConvertSurface(S1, fmt1);
     if (tmpS == NULL)
     {
-	perror("SDL_ConvertSurface() failed");
+	fprintf(stderr, "SDL_ConvertSurface() failed\n");
 	return S1;
     }
     if (-1 == SDL_LockSurface(tmpS))
     {
-	perror("SDL_LockSurface() failed");
+	fprintf(stderr, "SDL_LockSurface() failed\n");
 	return S1;
     }
 
@@ -465,7 +432,7 @@ SDL_Surface* T4K_Blend(SDL_Surface *S1, SDL_Surface *S2, float gamma)
     if (S2 != NULL)
 	SDL_UnlockSurface(S2);
 
-    ret = SDL_DisplayFormatAlpha(tmpS);
+    ret = SDL_ConvertSurface(tmpS, SDL_PIXELFORMAT_RGBA32);
     SDL_FreeSurface(tmpS);
 
     return ret;
@@ -494,7 +461,9 @@ int T4K_inRect( SDL_Rect r, int x, int y) {
 
 void T4K_UpdateRect(SDL_Surface* surf, SDL_Rect* rect)
 {
-    SDL_UpdateRect(surf, rect->x, rect->y, rect->w, rect->h);
+    (void)surf;
+    (void)rect;
+    T4K_PresentScreen();
 }
 
 void T4K_SetRect(SDL_Rect* rect, const float* pos)
@@ -508,36 +477,13 @@ void T4K_SetRect(SDL_Rect* rect, const float* pos)
 /* Darkens the screen by a factor of 2^bits */
 void T4K_DarkenScreen(Uint8 bits)
 {
-#if PIXEL_BITS == 32
-    Uint32* p;
-#elif PIXEL_BITS == 16
-    Uint16* p;
-#else
-    Uint16* p;
-    return;
-#endif
-    Uint32 rm = screen->format->Rmask;
-    Uint32 gm = screen->format->Gmask;
-    Uint32 bm = screen->format->Bmask;
-
-
-    int x, y;
-
-    /* (realistically, 1 and 2 are the only useful values) */
-    if (bits > 8)
-	return;
-
-    p = screen->pixels;
-
-    for (y = 0; y < screen->h; y++)
-    {
-	for (x = 0; x < screen->w; x++)
-	{
-	    *p = (((*p&rm)>>bits)&rm)
-		| (((*p&gm)>>bits)&gm)
-		| (((*p&bm)>>bits)&bm);
-	    p++;
-	}
+    if (!screen) return;
+    (void)bits;
+    SDL_Surface* dark = SDL_CreateSurface(screen->w, screen->h, SDL_PIXELFORMAT_RGBA32);
+    if (dark) {
+        SDL_FillSurfaceRect(dark, NULL, SDL_MapRGBA(dark->format, 0, 0, 0, 128));
+        SDL_BlitSurface(dark, NULL, screen, NULL);
+        SDL_DestroySurface(dark);
     }
 }
 
@@ -627,14 +573,14 @@ void T4K_OnResolutionSwitch (ResSwitchCallback callback)
    a single or OR'd combination of event masks.
    e.g. e = T4K_WaitForEvent(SDL_KEYDOWNMASK | SDL_QUITMASK)
    */
-SDL_EventType T4K_WaitForEvent(SDL_EventMask events)
+SDL_EventType T4K_WaitForEvent(Uint32 events)
 {
     SDL_Event evt;
     while (1)
     {
 	while (SDL_PollEvent(&evt) )
 	{
-	    if (SDL_EVENTMASK(evt.type) & events)
+	    if (events == 0 || (evt.type == (SDL_EventType)events))
 		return evt.type;
 	    else
 		SDL_Delay(50);
@@ -672,12 +618,7 @@ SDL_Surface* T4K_zoom(SDL_Surface* src, int new_w, int new_h)
 
     /* Create surface for zoom: */
 
-    s = SDL_CreateRGBSurface(src->flags,        /* SDL_SWSURFACE, */
-	    new_w, new_h, src->format->BitsPerPixel,
-	    src->format->Rmask,
-	    src->format->Gmask,
-	    src->format->Bmask,
-	    src->format->Amask);
+    s = SDL_CreateSurface(new_w, new_h, src->format);
 
     if (s == NULL)
     {
@@ -685,19 +626,17 @@ SDL_Surface* T4K_zoom(SDL_Surface* src, int new_w, int new_h)
 		"The Simple DirectMedia Layer error that occurred was:\n"
 		"%s\n\n", SDL_GetError());
 	return NULL;
-	//    cleanup();
-	//    exit(1);
     }
 
     DEBUGMSG(debug_sdl, "T4K_zoom(): orig surface %dx%d, %d bytes per pixel\n",
-	    src->w, src->h, src->format->BytesPerPixel);
+	    src->w, src->h, SDL_BYTESPERPIXEL(src->format));
     DEBUGMSG(debug_sdl, "T4K_zoom(): new surface %dx%d, %d bytes per pixel\n",
-	    s->w, s->h, s->format->BytesPerPixel);
+	    s->w, s->h, SDL_BYTESPERPIXEL(s->format));
 
     /* Now assign function pointers to correct functions based */
     /* on data format of original and zoomed surfaces:         */
-    getpixel = getpixels[src->format->BytesPerPixel];
-    putpixel = putpixels[s->format->BytesPerPixel];
+    getpixel = getpixels[SDL_BYTESPERPIXEL(src->format)];
+    putpixel = putpixels[SDL_BYTESPERPIXEL(s->format)];
 
     SDL_LockSurface(src);
     SDL_LockSurface(s);
@@ -1141,46 +1080,20 @@ void T4K_UpdateScreen(int* frame)
     {
 	if (blits[i].type == 'E')
 	{
-	    //       DEBUGCODE(debug_sdl)
-	    //       {
-	    //         fprintf(stderr, "Erasing blits[%d]\n", i);
-	    //         fprintf(stderr, "srcrect->x = %d\t srcrect->y = %d\t srcrect->w = %d\t srcrect->h = %d\n",
-	    //               blits[i].srcrect->x, blits[i].srcrect->y, blits[i].srcrect->w, blits[i].srcrect->h);
-	    //         fprintf(stderr, "dstrect->x = %d\t dstrect->y = %d\t dstrect->w = %d\t dstrect->h = %d\n",
-	    //               blits[i].dstrect->x, blits[i].dstrect->y, blits[i].dstrect->w, blits[i].dstrect->h);
-	    //       }
-
-	    SDL_LowerBlit(blits[i].src, blits[i].srcrect, screen, blits[i].dstrect);
+	    SDL_BlitSurface(blits[i].src, blits[i].srcrect, screen, blits[i].dstrect);
 	}
     }
-
-    //  SNOW_erase();
 
     /* -- then draw -- */
     for (i = 0; i < numupdates; i++)
     {
 	if (blits[i].type == 'D')
 	{
-	    //       DEBUGCODE(debug_sdl)
-	    //       {
-	    //         fprintf(stderr, "drawing blits[%d]\n", i);
-	    //         fprintf(stderr, "srcrect->x = %d\t srcrect->y = %d\t srcrect->w = %d\t srcrect->h = %d\n",
-	    //               blits[i].srcrect->x, blits[i].srcrect->y, blits[i].srcrect->w, blits[i].srcrect->h);
-	    //         fprintf(stderr, "dstrect->x = %d\t dstrect->y = %d\t dstrect->w = %d\t dstrect->h = %d\n",
-	    //               blits[i].dstrect->x, blits[i].dstrect->y, blits[i].dstrect->w, blits[i].dstrect->h);
-	    //       }
-
 	    SDL_BlitSurface(blits[i].src, blits[i].srcrect, screen, blits[i].dstrect);
 	}
     }
 
-    //  SNOW_draw();
-
-    /* -- update the screen only where we need to! -- */
-    //  if (SNOW_on)
-    //    SDL_UpdateRects(screen, SNOW_add( (SDL_Rect*)&dstupdate, numupdates ), SNOW_rects);
-    //  else
-    SDL_UpdateRects(screen, numupdates, dstupdate);
+    T4K_PresentScreen();
 
     numupdates = 0;
     *frame = *frame + 1;
@@ -1411,7 +1324,7 @@ SDL_Surface* T4K_BlackOutline(const char* t, int size, const SDL_Color* c)
     SDLPango_SetText(context, t, -1);
     black_letters = SDLPango_CreateSurfaceDraw(context);
 #else
-    black_letters = TTF_RenderUTF8_Blended(font, t, black);
+    black_letters = TTF_RenderText_Blended(font, t, 0, black);
 #endif
 
     if (!black_letters)
@@ -1420,14 +1333,10 @@ SDL_Surface* T4K_BlackOutline(const char* t, int size, const SDL_Color* c)
 	return NULL;
     }
 
-    bg = SDL_CreateRGBSurface(SDL_SWSURFACE,
-	    (black_letters->w) + 5,
-	    (black_letters->h) + 5,
-	    32,
-	    rmask, gmask, bmask, amask);
+    bg = SDL_CreateSurface(black_letters->w + 5, black_letters->h + 5, SDL_PIXELFORMAT_RGBA32);
     /* Use color key for eventual transparency: */
     color_key = SDL_MapRGB(bg->format, 30, 30, 30);
-    SDL_FillRect(bg, NULL, color_key);
+    SDL_FillSurfaceRect(bg, NULL, color_key);
 
     /* Now draw black outline/shadow 2 pixels on each side: */
     dstrect.w = black_letters->w;
@@ -1457,7 +1366,7 @@ SDL_Surface* T4K_BlackOutline(const char* t, int size, const SDL_Color* c)
     white_letters = SDLPango_CreateSurfaceDraw(context);
 
 #else
-    white_letters = TTF_RenderUTF8_Blended(font, t, *c);
+    white_letters = TTF_RenderText_Blended(font, t, 0, *c);
 #endif
 
     if (!white_letters)
@@ -1472,8 +1381,8 @@ SDL_Surface* T4K_BlackOutline(const char* t, int size, const SDL_Color* c)
     SDL_FreeSurface(white_letters);
 
     /* --- Convert to the screen format for quicker blits --- */
-    SDL_SetColorKey(bg, SDL_SRCCOLORKEY|SDL_RLEACCEL, color_key);
-    out = SDL_DisplayFormatAlpha(bg);
+    SDL_SetSurfaceColorKey(bg, true, color_key);
+    out = SDL_ConvertSurface(bg, SDL_PIXELFORMAT_RGBA32);
     SDL_FreeSurface(bg);
 
     DEBUGMSG(debug_sdl, "\nLeaving T4K_BlackOutline(): \n");
@@ -1519,7 +1428,7 @@ SDL_Surface* T4K_SimpleText(const char *t, int size, const SDL_Color* col)
 	TTF_Font* font = get_font(size);
 	if (!font)
 	    return NULL;
-	surf = TTF_RenderUTF8_Blended(font, t, *col);
+	surf = TTF_RenderText_Blended(font, t, 0, *col);
     }
 #endif
 
@@ -1561,7 +1470,7 @@ int size_text(const char* text, int font_size, int* width, int* height)
     SDL_FreeSurface(temptext);
     return ret;
 #else
-    return TTF_SizeUTF8(get_font(font_size), text, width, height);
+    return TTF_GetStringSize(get_font(font_size), text, 0, width, height) ? 0 : -1;
 #endif
 }
 /* This (fast) function just returns a non-outlined surf */
@@ -1600,19 +1509,19 @@ SDL_Surface* T4K_SimpleTextWithOffset(const char *t, int size, const SDL_Color* 
 	TTF_Font* font = get_font(size);
 	if (!font)
 	    return NULL;
-	surf = TTF_RenderUTF8_Blended(font, t, *col);
+	surf = TTF_RenderText_Blended(font, t, 0, *col);
 	{
-	    int h;
+	    int minx, maxx, miny, maxy, advance;
 	    int hmax = 0;
 	    int len = strlen(t);
 	    int i;
 	    for (i = 0; i < len; i++)
 	    {
-		TTF_GlyphMetrics(font, t[i], NULL, NULL, NULL, &h, NULL);
-		if (h > hmax)
-		    hmax = h;
+		TTF_GetGlyphMetrics(font, (Uint32)(unsigned char)t[i], &minx, &maxx, &miny, &maxy, &advance);
+		if (maxy > hmax)
+		    hmax = maxy;
 	    }
-	    *glyph_offset = hmax - TTF_FontAscent(font);
+	    *glyph_offset = hmax - TTF_GetFontAscent(font);
 	}
     }
 #endif
