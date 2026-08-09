@@ -32,10 +32,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #if defined(HAVE_LIBSDL_NET) && HAVE_LIBSDL_NET
 #if __has_include(<SDL3_net/SDL_net.h>)
 #include <SDL3_net/SDL_net.h>
+#define T4K_HAS_SDL3_NET 1
 #elif __has_include(<SDL3/SDL_net.h>)
 #include <SDL3/SDL_net.h>
-#elif __has_include(<SDL_net.h>)
-#include <SDL_net.h>
+#define T4K_HAS_SDL3_NET 1
 #endif
 #endif
 
@@ -82,15 +82,13 @@ int InitT4KCommon(int debug_flags)
 	return 0;
     }
 
-#if defined(HAVE_LIBSDL_NET) && HAVE_LIBSDL_NET
-#if defined(SDL_NET_H_) || defined(SDL_NET_H) || defined(_SDL_NET_H)
+#if defined(T4K_HAS_SDL3_NET) && T4K_HAS_SDL3_NET
     /* Networking: */
     if (!SDLNet_Init())
     {
         fprintf(stderr, "SDLNet_Init: %s\n", SDL_GetError());
 	return 0;
     }
-#endif
 #endif
 
     /* Seed random-number generator: */
@@ -110,11 +108,9 @@ void CleanupT4KCommon(void)
     // Unload SDL_Pango or SDL_ttf:
     T4K_Cleanup_SDL_Text();
     
-#if defined(HAVE_LIBSDL_NET) && HAVE_LIBSDL_NET
-#if defined(SDL_NET_H_) || defined(SDL_NET_H) || defined(_SDL_NET_H)
+#if defined(T4K_HAS_SDL3_NET) && T4K_HAS_SDL3_NET
     /* Quit networking if appropriate: */
     SDLNet_Quit();
-#endif
 #endif
 
     // Finally, quit SDL
