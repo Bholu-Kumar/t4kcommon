@@ -84,9 +84,9 @@ int InitT4KCommon(int debug_flags)
 
 #if defined(T4K_HAS_SDL3_NET) && T4K_HAS_SDL3_NET
     /* Networking: */
-    if (!SDLNet_Init())
+    if (!NET_Init())
     {
-        fprintf(stderr, "SDLNet_Init: %s\n", SDL_GetError());
+        fprintf(stderr, "NET_Init: %s\n", SDL_GetError());
 	return 0;
     }
 #endif
@@ -110,7 +110,7 @@ void CleanupT4KCommon(void)
     
 #if defined(T4K_HAS_SDL3_NET) && T4K_HAS_SDL3_NET
     /* Quit networking if appropriate: */
-    SDLNet_Quit();
+    NET_Quit();
 #endif
 
     // Finally, quit SDL
