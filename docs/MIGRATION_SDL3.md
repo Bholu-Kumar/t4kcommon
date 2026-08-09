@@ -90,3 +90,34 @@ In SDL 1.2, rendering targeted a primary software screen surface (`SDL_Surface* 
 The migrated library builds cleanly and passes all test suites:
 1. `libt4k_common.so` compiles with zero errors under GCC/Clang with standard C99 flags.
 2. `t4k_test` executable links and passes runtime library initialization.
+
+---
+
+## 5. Build Prerequisites & Setup on New Devices
+
+When cloning and building `t4kcommon` or building SDL3 dependencies on a clean environment or new device, follow these setup requirements:
+
+### System Dependencies (Debian / Ubuntu)
+
+```bash
+sudo apt update
+sudo apt install -y build-essential cmake pkg-config libxml2-dev librsvg2-dev libpng-dev libxtst-dev
+```
+
+> [!IMPORTANT]
+> **SDL3 X11 XTEST Dependency (`libxtst-dev`):**
+> If building SDL3 from source on Linux/X11 systems, CMake will fail if `libxtst-dev` is missing (`Couldn't find dependency package for XTEST`). Install `libxtst-dev` or configure the SDL3 build with `-DSDL_X11_XTEST=OFF`.
+
+### Building `t4kcommon`
+
+From the root of the repository:
+
+```bash
+# Configure and build
+cmake -B build -S .
+cmake --build build
+
+# Install (optional)
+sudo cmake --install build
+```
+

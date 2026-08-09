@@ -21,6 +21,7 @@ include_directories(
     ${SDL3_IMAGE_INCLUDE_DIRS}
     ${SDL3_TTF_INCLUDE_DIRS}
     ${SDL3_MIXER_INCLUDE_DIRS}
+    ${SDL3_NET_INCLUDE_DIRS}
     ${LIBXML2_INCLUDE_DIR}
     ${CMAKE_SOURCE_DIR}/gettext
     ${CMAKE_BINARY_DIR}
@@ -66,8 +67,13 @@ target_link_libraries(${LIB_NAME}
     ${LINEBREAK_BINARY_DIR}/liblinebreak.a
     )
 
+if(SDL3_NET_FOUND)
+    target_link_libraries(${LIB_NAME} PkgConfig::SDL3_NET)
+endif()
+
 t4k_include_definition(HAVE_LIBSDL_PANGO)
 t4k_include_definition(HAVE_LIBPNG)
+t4k_include_definition(HAVE_LIBSDL_NET)
 set_target_properties (${LIB_NAME} PROPERTIES 
     COMPILE_FLAGS "${_rsvg_def} ${_pango_def} ${_rsvg_cflags} ${_cairo_cflags}"
     COMPILE_DEFINITIONS

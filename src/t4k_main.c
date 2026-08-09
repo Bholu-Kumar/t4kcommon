@@ -29,7 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "t4k_common.h"
 #include "t4k_globals.h"
 
-#ifdef HAVE_LIBSDL_NET
+#if defined(HAVE_LIBSDL_NET) && HAVE_LIBSDL_NET
 #include <SDL3_net/SDL_net.h>
 #endif
 
@@ -76,11 +76,11 @@ int InitT4KCommon(int debug_flags)
 	return 0;
     }
 
-#ifdef HAVE_LIBSDL_NET
+#if defined(HAVE_LIBSDL_NET) && HAVE_LIBSDL_NET
     /* Networking: */
-    if (SDLNet_Init() < 0)
+    if (!SDLNet_Init())
     {
-        fprintf(stderr, "SDLNet_Init: %s\n", SDLNet_GetError());
+        fprintf(stderr, "SDLNet_Init: %s\n", SDL_GetError());
 	return 0;
     }
 #endif
@@ -102,7 +102,7 @@ void CleanupT4KCommon(void)
     // Unload SDL_Pango or SDL_ttf:
     T4K_Cleanup_SDL_Text();
     
-#ifdef HAVE_LIBSDL_NET
+#if defined(HAVE_LIBSDL_NET) && HAVE_LIBSDL_NET
     /* Quit networking if appropriate: */
     SDLNet_Quit();
 #endif

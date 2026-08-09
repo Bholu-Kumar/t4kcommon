@@ -69,11 +69,12 @@ include_directories(
   ${LINEBREAK_SOURCE_DIR} 
   ${CMAKE_CURRENT_BINARY_DIR})
   
+add_library(linebreak STATIC ${LINEBREAK_SOURCES} ${LINEBREAK_HEADERS})
+
 if (ICONV_FOUND)
   include_directories(${ICONV_INCLUDE_DIR})
   target_link_libraries(linebreak ${ICONV_LIBRARY})
 endif (ICONV_FOUND)
-add_library(linebreak STATIC ${LINEBREAK_SOURCES} ${LINEBREAK_HEADERS})
 
 #project_source_group("${GROUP_CODE}" LINEBREAK_SOURCES LINEBREAK_HEADERS)
 
