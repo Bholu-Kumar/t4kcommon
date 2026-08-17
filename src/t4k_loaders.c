@@ -1155,12 +1155,20 @@ Mix_Chunk* T4K_LoadSound( char *datafile )
 {
     Mix_Chunk* tempChunk = NULL;
     char fn[T4K_PATH_MAX];
+    const char* fullpath = NULL;
 
     sprintf(fn, SOUNDS_DIR "/%s", datafile);
-    tempChunk = MIX_LoadAudio(NULL, fn, false);
+    fullpath = find_file(fn);
+    if (!fullpath || 1 != T4K_CheckFile(fullpath))
+    {
+	fprintf(stderr, "T4K_LoadSound(): Sound '%s' not found\n\n", fn);
+	return NULL;
+    }
+
+    tempChunk = MIX_LoadAudio(T4K_GetAudioMixer(), fullpath, true);
     if (!tempChunk)
     {
-	fprintf(stderr, "T4K_LoadSound(): %s not found\n\n", fn);
+	fprintf(stderr, "T4K_LoadSound(): %s not found\n\n", fullpath);
     }
     return tempChunk;
 }
@@ -1182,7 +1190,7 @@ Mix_Music* T4K_LoadMusic(char *datafile )
 	return NULL;
     }
 
-    tempMusic = MIX_LoadAudio(NULL, fn, false);
+    tempMusic = MIX_LoadAudio(T4K_GetAudioMixer(), fn, true);
 
     if (!tempMusic)
     {

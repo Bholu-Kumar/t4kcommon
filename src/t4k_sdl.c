@@ -83,19 +83,27 @@ SDL_Renderer* T4K_GetRenderer(void)
     return sdl_renderer;
 }
 
+void T4K_SetWindowAndRenderer(SDL_Window* win, SDL_Renderer* ren)
+{
+    sdl_window = win;
+    sdl_renderer = ren;
+}
+
 /* Upload the software screen surface to a texture and present it.
    This replaces SDL_Flip() and SDL_UpdateRect(screen,...) from SDL 1.2. */
 void T4K_PresentScreen(void)
 {
-    if (!sdl_renderer || !screen)
+    SDL_Renderer* r = sdl_renderer ? sdl_renderer : T4K_GetRenderer();
+    SDL_Surface* s = screen ? screen : T4K_GetScreen();
+    if (!r || !s)
         return;
 
-    SDL_Texture* tex = SDL_CreateTextureFromSurface(sdl_renderer, screen);
+    SDL_Texture* tex = SDL_CreateTextureFromSurface(r, s);
     if (tex)
     {
-        SDL_RenderClear(sdl_renderer);
-        SDL_RenderTexture(sdl_renderer, tex, NULL, NULL);
-        SDL_RenderPresent(sdl_renderer);
+        SDL_RenderClear(r);
+        SDL_RenderTexture(r, tex, NULL, NULL);
+        SDL_RenderPresent(r);
         SDL_DestroyTexture(tex);
     }
 }
@@ -1662,19 +1670,39 @@ static TTF_Font* load_font(const char* font_name, int font_size)
 {
     TTF_Font* f;
     char fontfile[T4K_PATH_MAX];
-    sprintf(fontfile, "%s/fonts/%s", COMMON_DATA_PREFIX, font_name);
+    char relative[T4K_PATH_MAX];
+    const char* resolved;
 
-    f = TTF_OpenFont(fontfile, font_size);
-
-    /* HACK - better font searching needed! */
-    /* This should mean that font wasn't bundled into data path, which for  */
-    /* now means we are using Debian, so grab from Debian installation loc: */
-    if (!f)
+    /* First try find_file() which searches the app's data prefix: */
+    snprintf(relative, T4K_PATH_MAX, "fonts/%s", font_name);
+    resolved = find_file(relative);
+    if (resolved && resolved[0] != '\0')
     {
-	sprintf(fontfile, "/usr/share/fonts/truetype/ttf-sil-andika/AndikaDesRevG.ttf");
-	f = TTF_OpenFont(fontfile, font_size);
+	f = TTF_OpenFont(resolved, font_size);
+	if (f)
+	{
+	    DEBUGMSG(debug_sdl, "LoadFont(): %s loaded successfully\n\n", resolved);
+	    return f;
+	}
     }
 
+    /* Try t4k_common's own data prefix: */
+    sprintf(fontfile, "%s/fonts/%s", COMMON_DATA_PREFIX, font_name);
+    f = TTF_OpenFont(fontfile, font_size);
+    if (f)
+    {
+	DEBUGMSG(debug_sdl, "LoadFont(): %s loaded successfully\n\n", fontfile);
+	return f;
+    }
+
+    /* Fallback to common Debian system font locations: */
+    sprintf(fontfile, "/usr/share/fonts/truetype/ttf-sil-andika/AndikaDesRevG.ttf");
+    f = TTF_OpenFont(fontfile, font_size);
+    if (!f)
+    {
+	sprintf(fontfile, "/usr/share/fonts/truetype/andika/Andika-Regular.ttf");
+	f = TTF_OpenFont(fontfile, font_size);
+    }
 
     if (f)
     {
@@ -1683,7 +1711,7 @@ static TTF_Font* load_font(const char* font_name, int font_size)
     }
     else
     {
-	fprintf(stderr, "LoadFont(): %s NOT loaded successfully.\n", fontfile);
+	fprintf(stderr, "LoadFont(): %s NOT loaded successfully.\n", font_name);
 	return NULL;
     }
 }

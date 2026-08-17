@@ -624,6 +624,8 @@ SDL_Window* T4K_GetWindow( void );
 //!
 SDL_Renderer* T4K_GetRenderer( void );
 
+void T4K_SetWindowAndRenderer( SDL_Window* win, SDL_Renderer* ren );
+
 //============================================================================== 
 //
 //  T4K_PresentScreen
@@ -1905,6 +1907,9 @@ void T4K_AudioEnable( bool enabled );
 //!     None
 //!
 void T4K_AudioToggle( void );
+void T4K_AudioSetGlobalVolume( float gain );
+float T4K_AudioGetGlobalVolume( void );
+MIX_Mixer* T4K_GetAudioMixer( void );
 
 
 //=============================================================================
