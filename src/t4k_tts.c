@@ -41,6 +41,9 @@ int text_to_speech_status;
 # include <speak_lib.h>
 #endif
 
+void T4K_Tts_cancel(void);
+void T4K_Tts_wait(void);
+
 /* TTS annoncement should be in thread otherwise 
  * it will freez the game till announcemrnt finishes */
 int tts_thread_func(void *arg)
