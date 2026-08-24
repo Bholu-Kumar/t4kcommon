@@ -1011,6 +1011,31 @@ typedef void (*ResSwitchCallback)(int resx, int resy);
 void T4K_OnResolutionSwitch( ResSwitchCallback callback );
 
 //==============================================================================
+//
+//  AccessibilityCallback
+//
+//! \brief
+//!     A function to handle an accessibility toggle (TTS or Braille).
+//!
+typedef void (*AccessibilityCallback)(void);
+
+//==============================================================================
+// 
+//  T4K_OnAccessibilityToggle
+//
+//! \brief 
+//!     Register callbacks to handle accessibility keys (F5 for TTS, F9 for Braille).
+//!
+//! \param 
+//!     tts_cb           - A function to be called when F5 is pressed.
+//!     braille_cb       - A function to be called when F9 is pressed.
+//!
+//! \return
+//!     None
+//!
+void T4K_OnAccessibilityToggle( AccessibilityCallback tts_cb, AccessibilityCallback braille_cb );
+
+//==============================================================================
 // 
 //  T4K_WaitForEvent
 //

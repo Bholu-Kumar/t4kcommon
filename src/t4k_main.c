@@ -117,6 +117,14 @@ void CleanupT4KCommon(void)
     SDL_Quit();
 }
 
+static AccessibilityCallback tts_toggle_callback = NULL;
+static AccessibilityCallback braille_toggle_callback = NULL;
+
+void T4K_OnAccessibilityToggle(AccessibilityCallback tts_cb, AccessibilityCallback braille_cb)
+{
+    tts_toggle_callback = tts_cb;
+    braille_toggle_callback = braille_cb;
+}
 
 int T4K_HandleStdEvents (const SDL_Event* event)
 {
@@ -143,6 +151,17 @@ int T4K_HandleStdEvents (const SDL_Event* event)
 	T4K_AudioToggle();
     }
 #endif
+
+    /* Toggle Accessibility (do NOT set ret=1; returning 1 causes
+       T4K_RunMenu to exit the menu, which is not desired for toggles): */
+    else if (key == SDLK_F5 && tts_toggle_callback)
+    {
+        tts_toggle_callback();
+    }
+    else if (key == SDLK_F9 && braille_toggle_callback)
+    {
+        braille_toggle_callback();
+    }
 
     return ret;
 }

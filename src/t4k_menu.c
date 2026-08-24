@@ -845,16 +845,19 @@ int T4K_RunMenu(int index, bool return_choice, void (*draw_background)(), int (*
 		    }
 
 		    /* Announce the menu item if index is not out of bonds */
-		    if(loc + menu->first_entry >= 0 && loc <= items)
+		    if(loc + menu->first_entry >= 0 && loc < items)
 		    {
+				char *desc = menu->submenu[loc + menu->first_entry]->desc;
+				char *trans_desc = (desc && desc[0] != '\0') ? _(desc) : NULL;
+				if (trans_desc && strncmp(trans_desc, "Project-Id-Version", 18) == 0)
+					trans_desc = NULL;
 
-				if (menu->submenu[loc + menu->first_entry]->desc == NULL)
-					T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,INTERRUPT,"%s",
-					_(menu->submenu[loc + menu->first_entry]->title));
+				if (trans_desc && trans_desc[0] != '\0')
+					T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, "%s. %s",
+					_(menu->submenu[loc + menu->first_entry]->title), trans_desc);
 				else
-					T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,INTERRUPT,"%s. %s",
-					_(menu->submenu[loc + menu->first_entry]->title),_(menu->submenu[loc + menu->first_entry]->desc));
-
+					T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, "%s",
+					_(menu->submenu[loc + menu->first_entry]->title));
 			}
 
 		    if(loc >= 0 && loc < items)
@@ -881,7 +884,6 @@ int T4K_RunMenu(int index, bool return_choice, void (*draw_background)(), int (*
 				desc = "";
 			    char_width = desc_chars_per_line(T4K_TOOLTIP_FONTSIZE);
 			    T4K_LineWrapInsBreaks(desc, out, char_width, 64, 64);
-			    //        desc_prerendered = T4K_SimpleText(out, T4K_TOOLTIP_FONTSIZE, &yellow);
 			    if (strcmp(desc, "") != 0)
 				desc_prerendered = T4K_BlackOutline(out, T4K_TOOLTIP_FONTSIZE, &yellow);
 			}
@@ -892,6 +894,8 @@ int T4K_RunMenu(int index, bool return_choice, void (*draw_background)(), int (*
 			    SDL_BlitSurface(desc_prerendered, NULL, T4K_GetScreen(), &pos);
 			    T4K_PresentScreen();
 			}
+
+
 
 		    }
 		    old_loc = loc;
@@ -1042,13 +1046,6 @@ int T4K_RunMenu(int index, bool return_choice, void (*draw_background)(), int (*
 	    /* handle titlescreen animations */
 	    handle_animations();
 
-	    if(desc_prerendered) {
-		SDL_Rect pos = {T4K_GetScreen()->w * desc_panel_pos[0], T4K_GetScreen()->h * desc_panel_pos[1]};
-		SDL_BlitSurface(desc_panel, NULL, T4K_GetScreen(), &pos);
-		SDL_BlitSurface(desc_prerendered, NULL, T4K_GetScreen(), &pos);
-		T4K_PresentScreen();
-	    }
-
 	    /* Wait so we keep frame rate constant: */
 	    frame_now = SDL_GetTicks();
 	    if (frame_now < frame_start)
@@ -1083,10 +1080,10 @@ void prerender_panel() {
 	T4K_GetScreen()->h * desc_panel_pos[3]};
     if(desc_panel != NULL)
 	SDL_FreeSurface(desc_panel);
-    desc_panel = T4K_CreateButton(panelclip.w - panelclip.x, panelclip.h - panelclip.y, 8, 0xff, 0xff, 0xff, 100);
-    SDL_BlitSurface(desc_panel, NULL, T4K_GetScreen(), &panelclip);
-    SDL_BlitSurface(T4K_GetScreen(), &panelclip, desc_panel, NULL);
+    desc_panel = T4K_CreateButton(panelclip.w - panelclip.x, panelclip.h - panelclip.y, 8, 0xff, 0xff, 0xff, 255);
 }
+
+
 
 /* return button surfaces that are currently displayed (without sprites) */
 SDL_Surface** render_buttons(MenuNode* menu, bool selected)

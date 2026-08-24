@@ -1281,6 +1281,67 @@ void T4K_Cleanup_SDL_Text(void)
 }
 
 
+static SDL_Surface* render_multiline_text(TTF_Font* font, const char* text, SDL_Color color)
+{
+    if (!text || text[0] == '\0') return NULL;
+    if (!strchr(text, '\n'))
+    {
+        return TTF_RenderText_Blended_Wrapped(font, text, 0, color, 0);
+    }
+
+    char* copy = strdup(text);
+    if (!copy) return NULL;
+
+    char* lines[32];
+    int line_count = 0;
+    char* token = strtok(copy, "\n");
+    while (token && line_count < 32)
+    {
+        lines[line_count++] = token;
+        token = strtok(NULL, "\n");
+    }
+
+    SDL_Surface* line_surfs[32];
+    int total_h = 0;
+    int max_w = 0;
+    int line_skip = TTF_GetFontLineSkip(font);
+    if (line_skip <= 0) line_skip = TTF_GetFontSize(font) + 4;
+
+    for (int i = 0; i < line_count; i++)
+    {
+        line_surfs[i] = TTF_RenderText_Blended_Wrapped(font, lines[i], 0, color, 0);
+        if (line_surfs[i])
+        {
+            if (line_surfs[i]->w > max_w) max_w = line_surfs[i]->w;
+            total_h += (i == 0) ? line_surfs[i]->h : line_skip;
+        }
+    }
+
+    if (max_w == 0 || total_h == 0)
+    {
+        free(copy);
+        return NULL;
+    }
+
+    SDL_Surface* result = SDL_CreateSurface(max_w, total_h, SDL_PIXELFORMAT_RGBA32);
+    SDL_FillSurfaceRect(result, NULL, SDL_MapRGBA(result->format, 0, 0, 0, 0));
+
+    int current_y = 0;
+    for (int i = 0; i < line_count; i++)
+    {
+        if (line_surfs[i])
+        {
+            SDL_Rect dst = {0, current_y, line_surfs[i]->w, line_surfs[i]->h};
+            SDL_BlitSurface(line_surfs[i], NULL, result, &dst);
+            current_y += line_skip;
+            SDL_FreeSurface(line_surfs[i]);
+        }
+    }
+
+    free(copy);
+    return result;
+}
+
 /* T4K_BlackOutline() creates a surface containing text of the designated */
 /* foreground color, surrounded by a black shadow, on a transparent    */
 /* background.  The appearance can be tuned by adjusting the number of */
@@ -1332,7 +1393,7 @@ SDL_Surface* T4K_BlackOutline(const char* t, int size, const SDL_Color* c)
     SDLPango_SetText(context, t, -1);
     black_letters = SDLPango_CreateSurfaceDraw(context);
 #else
-    black_letters = TTF_RenderText_Blended(font, t, 0, black);
+    black_letters = render_multiline_text(font, t, black);
 #endif
 
     if (!black_letters)
@@ -1374,7 +1435,7 @@ SDL_Surface* T4K_BlackOutline(const char* t, int size, const SDL_Color* c)
     white_letters = SDLPango_CreateSurfaceDraw(context);
 
 #else
-    white_letters = TTF_RenderText_Blended(font, t, 0, *c);
+    white_letters = render_multiline_text(font, t, *c);
 #endif
 
     if (!white_letters)
@@ -1436,7 +1497,7 @@ SDL_Surface* T4K_SimpleText(const char *t, int size, const SDL_Color* col)
 	TTF_Font* font = get_font(size);
 	if (!font)
 	    return NULL;
-	surf = TTF_RenderText_Blended(font, t, 0, *col);
+	surf = render_multiline_text(font, t, *col);
     }
 #endif
 
@@ -1517,7 +1578,7 @@ SDL_Surface* T4K_SimpleTextWithOffset(const char *t, int size, const SDL_Color* 
 	TTF_Font* font = get_font(size);
 	if (!font)
 	    return NULL;
-	surf = TTF_RenderText_Blended(font, t, 0, *col);
+	surf = render_multiline_text(font, t, *col);
 	{
 	    int minx, maxx, miny, maxy, advance;
 	    int hmax = 0;
@@ -1659,7 +1720,7 @@ static TTF_Font* get_font(int size)
     }
 
     if(font_list[size] == NULL)
-	font_list[size] = load_font(DEFAULT_FONT_NAME, size);
+	font_list[size] = load_font(T4K_AskFontName(), size);
     return font_list[size];
 }
 
@@ -1672,6 +1733,9 @@ static TTF_Font* load_font(const char* font_name, int font_size)
     char fontfile[T4K_PATH_MAX];
     char relative[T4K_PATH_MAX];
     const char* resolved;
+
+    if (!font_name || font_name[0] == '\0')
+	font_name = DEFAULT_FONT_NAME;
 
     /* First try find_file() which searches the app's data prefix: */
     snprintf(relative, T4K_PATH_MAX, "fonts/%s", font_name);
@@ -1708,6 +1772,10 @@ static TTF_Font* load_font(const char* font_name, int font_size)
     {
 	DEBUGMSG(debug_sdl, "LoadFont(): %s loaded successfully\n\n", fontfile);
 	return f;
+    }
+    else if (strcmp(font_name, DEFAULT_FONT_NAME) != 0)
+    {
+	return load_font(DEFAULT_FONT_NAME, font_size);
     }
     else
     {
