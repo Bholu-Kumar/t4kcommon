@@ -101,6 +101,8 @@ install( TARGETS ${LIB_NAME}
 install(FILES ${T4K_COMMON_SOURCE_DIR}/t4k_common.h
     ${T4K_COMMON_SOURCE_DIR}/t4k_alphasort.h
     ${T4K_COMMON_SOURCE_DIR}/t4k_scandir.h
+    ${T4K_COMMON_SOURCE_DIR}/t4k_globals.h
+    ${T4K_COMMON_SOURCE_DIR}/t4k_compiler.h
     DESTINATION include)
 
 include(UseDoxygen OPTIONAL)
