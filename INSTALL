@@ -6,11 +6,11 @@ possibly other tux4kids apps in the future.
 Git repository: git://git.debian.org/git/tux4kids/t4kcommon.git
 
 Required libraries:
-	SDL
-	SDL_mixer
-	SDL_image
-	SDL_Pango (preferred) or SDL_ttf
-	SDL_net (optional)
+	SDL3
+	SDL3_mixer
+	SDL3_image
+	SDL3_ttf
+	SDL3_net (optional)
 	rsvg2 (optional)
 	cairo (optional)
 	png
