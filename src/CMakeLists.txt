@@ -31,6 +31,39 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/src/linebreak
     )
 
+# On MinGW/Windows, auto-detect librsvg, cairo, glib-2.0, and libintl
+# using pkg-config so paths are never hardcoded (works on any MSYS2 install).
+if(MINGW)
+    pkg_check_modules(LIBRSVG REQUIRED librsvg-2.0)
+    pkg_check_modules(CAIRO   REQUIRED cairo)
+    pkg_check_modules(GLIB    REQUIRED glib-2.0)
+    # libintl has no .pc file on MinGW — use find_library with MSYS2 prefix hint.
+    # Users can set MSYS2_PREFIX env var to override (e.g. D:/msys2/ucrt64).
+    if(DEFINED ENV{MSYS2_PREFIX})
+        set(_msys2_prefix "$ENV{MSYS2_PREFIX}")
+    else()
+        # Detect from compiler location: strip /bin/gcc -> parent is the prefix
+        get_filename_component(_msys2_prefix "${CMAKE_C_COMPILER}" DIRECTORY)
+        get_filename_component(_msys2_prefix "${_msys2_prefix}" DIRECTORY)
+    endif()
+    find_library(LIBINTL_LIBRARIES  NAMES intl libintl
+        HINTS "${_msys2_prefix}/lib" REQUIRED)
+    find_library(LIBICONV_LIBRARIES NAMES iconv libiconv
+        HINTS "${_msys2_prefix}/lib" REQUIRED)
+    find_library(LIBPNG_LIBRARIES   NAMES png libpng png16 libpng16
+        HINTS "${_msys2_prefix}/lib" REQUIRED)
+    find_library(ZLIB_LIBRARIES     NAMES z zlib
+        HINTS "${_msys2_prefix}/lib" REQUIRED)
+    include_directories(
+        ${LIBRSVG_INCLUDE_DIRS}
+        ${CAIRO_INCLUDE_DIRS}
+        ${GLIB_INCLUDE_DIRS}
+    )
+    link_directories(
+        ${LIBRSVG_LIBRARY_DIRS}
+    )
+endif()
+
 link_directories(/usr/local/lib)
 
 #Look here for optional headers
@@ -66,6 +99,17 @@ target_link_libraries(${LIB_NAME}
     ${LIBXML2_LIBRARIES}
     ${LINEBREAK_BINARY_DIR}/liblinebreak.a
     )
+
+# On MinGW, explicitly link gettext (libintl), librsvg, libiconv, libpng, zlib
+if(MINGW)
+    target_link_libraries(${LIB_NAME}
+        ${LIBINTL_LIBRARIES}
+        ${LIBRSVG_LIBRARIES}
+        ${LIBICONV_LIBRARIES}
+        ${LIBPNG_LIBRARIES}
+        ${ZLIB_LIBRARIES}
+    )
+endif()
 
 if(SDL3_NET_FOUND)
     link_directories(${SDL3_NET_LIBRARY_DIRS})

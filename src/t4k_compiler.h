@@ -56,8 +56,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 /*
    MinGW implementation of isspace() crashes on some Win98 boxes
    if c is 'out-of-range'.
+   Only override on classic MinGW (not modern UCRT/MSVC or Debian/Linux).
+   On modern MinGW (UCRT), ctype.h's isspace is safe, so skip entirely.
    */
+#if defined(__MINGW32__) && !defined(__MINGW64_VERSION_MAJOR)
+#undef isspace
 #define isspace(c) (((c) == 0x20) || ((c) >= 0x09 && (c) <= 0x0D))
+#endif
 
 /*
    WIN32 and MINGW don't have strcasestr().

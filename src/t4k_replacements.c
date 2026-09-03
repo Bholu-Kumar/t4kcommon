@@ -147,7 +147,7 @@ int scandir(const char *dirname, struct dirent ***namelist, int (*sdfilter)(cons
     free (findIn);
 
     if (dcomp)
-	qsort (dir, nDir, sizeof(*dir),dcomp);
+	qsort (dir, nDir, sizeof(*dir), (int (*)(const void*, const void*))dcomp);
 
     *namelist = dir;
     return nDir;
