@@ -89,6 +89,11 @@ void T4K_SetWindowAndRenderer(SDL_Window* win, SDL_Renderer* ren)
     sdl_renderer = ren;
 }
 
+void T4K_SetScreen(SDL_Surface* s)
+{
+    screen = s;
+}
+
 /* Upload the software screen surface to a texture and present it.
    This replaces SDL_Flip() and SDL_UpdateRect(screen,...) from SDL 1.2. */
 void T4K_PresentScreen(void)

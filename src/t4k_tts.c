@@ -47,20 +47,24 @@ void T4K_Tts_wait(void);
 
 /* TTS annoncement should be in thread otherwise 
  * it will freez the game till announcemrnt finishes */
-int tts_thread_func(void *arg)
+int SDLCALL tts_thread_func(void *arg)
 {
 	espeak_POSITION_TYPE position_type = POS_CHARACTER;
 	tts_argument* recived = (tts_argument*)arg;
 	if (!recived) return 0;
 
-	fprintf(stderr,"\nSpeaking : %s - %d", recived->text, recived->mode);
+	fprintf(stderr,"\nSpeaking : %s - %d\n", recived->text, recived->mode);
+	fflush(stderr);
+
 	if (recived->mode == INTERRUPT)
 		T4K_Tts_cancel();
 	else
 		T4K_Tts_wait();
 	
 	int Size = strlen(recived->text)+1;
-	espeak_Synth(recived->text, Size, 0, position_type, 0,	espeakCHARS_AUTO,0, NULL);	
+	espeak_ERROR err = espeak_Synth(recived->text, Size, 0, position_type, 0, espeakCHARS_AUTO, 0, NULL);	
+	fprintf(stderr, "espeak_Synth returned %d for '%s'\n", (int)err, recived->text);
+	fflush(stderr);
 	espeak_Synchronize();
 	free(recived);
 	return 1;
@@ -85,10 +89,26 @@ void T4K_Tts_wait()
 //This function should be called at begining 
 int T4K_Tts_init()
 {
-	if(espeak_Initialize(AUDIO_OUTPUT_PLAYBACK, 500, NULL, 0 ) == -1)
+    const char* path = NULL;
+#if defined(WIN32) || defined(_WIN32) || defined(BUILD_MINGW32)
+    path = ".";
+#endif
+	if(espeak_Initialize(AUDIO_OUTPUT_PLAYBACK, 500, path, 0 ) == -1)
+	{
+		text_to_speech_status = 0;
 		return 0;
+	}
 	else
+	{
+		text_to_speech_status = 1;
+		T4K_Tts_set_volume(100);
 		return 1;
+	}
+}
+
+void T4K_Tts_set_status(int status)
+{
+	text_to_speech_status = status;
 }
 
 /*Used to set person in TTS. in the case of espeak we will set 
@@ -148,6 +168,7 @@ void T4K_Tts_say(int rate,int pitch,int mode, const char* text, ...){
 
 	T4K_Tts_set_rate(rate);
 	T4K_Tts_set_pitch(pitch);
+	T4K_Tts_set_volume(100);
 
 	//Getting the formated text
 	va_list list;
