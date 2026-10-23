@@ -50,6 +50,8 @@ int InitT4KCommon(int debug_flags)
 {
     fprintf(stderr, "Initializing " PACKAGE_STRING "\n");
 
+    SDL_SetHint(SDL_HINT_QUIT_ON_LAST_WINDOW_CLOSE, "1");
+
     /* Video: */
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
@@ -70,7 +72,7 @@ int InitT4KCommon(int debug_flags)
     }
 
     /* TTS */
-    if(T4K_Tts_init())
+    if(!T4K_Tts_init())
     {
         fprintf(stderr,"\nWarning: I could not initialize Tts!\n");
     }
@@ -101,12 +103,15 @@ int InitT4KCommon(int debug_flags)
 
 void CleanupT4KCommon(void)
 {
+    T4K_AudioCleanup();
     // Close the audio mixer.
     Mix_CloseAudio();
     
     T4K_UnloadMenus();
     // Unload SDL_Pango or SDL_ttf:
     T4K_Cleanup_SDL_Text();
+    // Terminate TTS and free voice tables:
+    T4K_Tts_cleanup();
     
 #if defined(T4K_HAS_SDL3_NET) && T4K_HAS_SDL3_NET
     /* Quit networking if appropriate: */

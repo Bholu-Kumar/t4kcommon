@@ -83,8 +83,31 @@ SDL_Renderer* T4K_GetRenderer(void)
     return sdl_renderer;
 }
 
+static SDL_Texture* present_tex = NULL;
+static int present_tex_w = 0;
+static int present_tex_h = 0;
+static SDL_PixelFormat present_tex_fmt = SDL_PIXELFORMAT_UNKNOWN;
+static SDL_Renderer* present_tex_ren = NULL;
+
+void T4K_DestroyPresentTexture(void)
+{
+    if (present_tex)
+    {
+        SDL_DestroyTexture(present_tex);
+        present_tex = NULL;
+    }
+    present_tex_w = 0;
+    present_tex_h = 0;
+    present_tex_fmt = SDL_PIXELFORMAT_UNKNOWN;
+    present_tex_ren = NULL;
+}
+
 void T4K_SetWindowAndRenderer(SDL_Window* win, SDL_Renderer* ren)
 {
+    if (sdl_renderer != ren)
+    {
+        T4K_DestroyPresentTexture();
+    }
     sdl_window = win;
     sdl_renderer = ren;
     if (fs_res_x == 0 || fs_res_y == 0)
@@ -108,11 +131,18 @@ void T4K_SetResolutions(int win_x, int win_y, int full_x, int full_y)
 
 void T4K_SetScreen(SDL_Surface* s)
 {
+    if (screen != s)
+    {
+        T4K_DestroyPresentTexture();
+    }
     screen = s;
 }
 
 /* Upload the software screen surface to a texture and present it.
-   This replaces SDL_Flip() and SDL_UpdateRect(screen,...) from SDL 1.2. */
+   This replaces SDL_Flip() and SDL_UpdateRect(screen,...) from SDL 1.2.
+   Uses a persistent streaming texture to avoid allocating/destroying
+   large Direct3D GPU textures every frame (which stalls and freezes
+   on high-DPI/emulated ARM64 devices such as Microsoft Surface Laptop). */
 void T4K_PresentScreen(void)
 {
     SDL_Renderer* r = sdl_renderer ? sdl_renderer : T4K_GetRenderer();
@@ -120,17 +150,48 @@ void T4K_PresentScreen(void)
     if (!r || !s)
         return;
 
-    SDL_Texture* tex = SDL_CreateTextureFromSurface(r, s);
-    if (tex)
+    /* Recreate texture only if dimensions, format, or renderer changed */
+    if (!present_tex || present_tex_ren != r || present_tex_w != s->w || present_tex_h != s->h || present_tex_fmt != s->format)
     {
+        T4K_DestroyPresentTexture();
+        present_tex = SDL_CreateTexture(r, s->format, SDL_TEXTUREACCESS_STREAMING, s->w, s->h);
+        if (present_tex)
+        {
+            SDL_SetTextureScaleMode(present_tex, SDL_SCALEMODE_LINEAR);
+            present_tex_ren = r;
+            present_tex_w = s->w;
+            present_tex_h = s->h;
+            present_tex_fmt = s->format;
+        }
+    }
+
+    if (present_tex)
+    {
+        SDL_UpdateTexture(present_tex, NULL, s->pixels, s->pitch);
         int render_w, render_h;
         SDL_GetRenderOutputSize(r, &render_w, &render_h);
         SDL_FRect dstrect = {0.0f, 0.0f, (float)render_w, (float)render_h};
 
         SDL_RenderClear(r);
-        SDL_RenderTexture(r, tex, NULL, &dstrect);
+        SDL_RenderTexture(r, present_tex, NULL, &dstrect);
         SDL_RenderPresent(r);
-        SDL_DestroyTexture(tex);
+    }
+    else
+    {
+        /* Fallback if streaming texture creation fails */
+        SDL_Texture* tex = SDL_CreateTextureFromSurface(r, s);
+        if (tex)
+        {
+            SDL_SetTextureScaleMode(tex, SDL_SCALEMODE_LINEAR);
+            int render_w, render_h;
+            SDL_GetRenderOutputSize(r, &render_w, &render_h);
+            SDL_FRect dstrect = {0.0f, 0.0f, (float)render_w, (float)render_h};
+
+            SDL_RenderClear(r);
+            SDL_RenderTexture(r, tex, NULL, &dstrect);
+            SDL_RenderPresent(r);
+            SDL_DestroyTexture(tex);
+        }
     }
 }
 
@@ -832,6 +893,7 @@ int T4K_TransWipe(const SDL_Surface* newbkg, WipeStyle type, int segments, int d
 			T4K_AddRect(&dst, &dst);
 		    }
 		    T4K_PresentScreen();
+		    SDL_PumpEvents();
 		    SDL_Delay(10);
 		}
 
@@ -841,6 +903,7 @@ int T4K_TransWipe(const SDL_Surface* newbkg, WipeStyle type, int segments, int d
 		src.h = screen->h;
 		SDL_BlitSurface((SDL_Surface*)newbkg, NULL, screen, &src);
 		T4K_PresentScreen();
+		SDL_PumpEvents();
 
 		break;
 	    }
@@ -872,6 +935,7 @@ int T4K_TransWipe(const SDL_Surface* newbkg, WipeStyle type, int segments, int d
 			T4K_AddRect(&dst, &dst);
 		    }
 		    T4K_PresentScreen();
+		    SDL_PumpEvents();
 		    SDL_Delay(10);
 		}
 
@@ -881,6 +945,7 @@ int T4K_TransWipe(const SDL_Surface* newbkg, WipeStyle type, int segments, int d
 		src.h = screen->h;
 		SDL_BlitSurface((SDL_Surface*)newbkg, NULL, screen, &src);
 		T4K_PresentScreen();
+		SDL_PumpEvents();
 
 		break;
 	    }
@@ -925,6 +990,7 @@ int T4K_TransWipe(const SDL_Surface* newbkg, WipeStyle type, int segments, int d
 			T4K_AddRect(&dst, &dst);
 		    }
 		    T4K_PresentScreen();
+		    SDL_PumpEvents();
 		    SDL_Delay(10);
 		}
 
@@ -934,6 +1000,7 @@ int T4K_TransWipe(const SDL_Surface* newbkg, WipeStyle type, int segments, int d
 		src.h = screen->h;
 		SDL_BlitSurface((SDL_Surface*)newbkg, NULL, screen, &src);
 		T4K_PresentScreen();
+		SDL_PumpEvents();
 
 		break;
 	    }
@@ -1303,6 +1370,7 @@ int T4K_Setup_SDL_Text(void)
 
 void T4K_Cleanup_SDL_Text(void)
 {
+    T4K_DestroyPresentTexture();
 #if HAVE_LIBSDL_PANGO
     if(context != NULL)
 	SDLPango_FreeContext(context);
@@ -1334,7 +1402,7 @@ static SDL_Surface* render_multiline_text(TTF_Font* font, const char* text, SDL_
         token = strtok(NULL, "\n");
     }
 
-    SDL_Surface* line_surfs[32];
+    SDL_Surface* line_surfs[32] = {NULL};
     int total_h = 0;
     int max_w = 0;
 
@@ -1352,11 +1420,24 @@ static SDL_Surface* render_multiline_text(TTF_Font* font, const char* text, SDL_
 
     if (max_w == 0 || total_h == 0)
     {
+        for (int i = 0; i < line_count; i++)
+        {
+            if (line_surfs[i]) SDL_FreeSurface(line_surfs[i]);
+        }
         free(copy);
         return NULL;
     }
 
     SDL_Surface* result = SDL_CreateSurface(max_w, total_h, SDL_PIXELFORMAT_RGBA32);
+    if (!result)
+    {
+        for (int i = 0; i < line_count; i++)
+        {
+            if (line_surfs[i]) SDL_FreeSurface(line_surfs[i]);
+        }
+        free(copy);
+        return NULL;
+    }
     SDL_FillSurfaceRect(result, NULL, SDL_MapRGBA(result->format, 0, 0, 0, 0));
     SDL_SetSurfaceBlendMode(result, SDL_BLENDMODE_BLEND);
 
@@ -1475,6 +1556,8 @@ SDL_Surface* T4K_BlackOutline(const char* t, int size, const SDL_Color* c)
     if (!white_letters)
     {
 	fprintf (stderr, "Warning - T4K_BlackOutline() could not create image for %s\n", t);
+	if (bg)
+	    SDL_FreeSurface(bg);
 	return NULL;
     }
 

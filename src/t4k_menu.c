@@ -261,7 +261,7 @@ MenuNode *menu_TranslateNode(xmlNode *node) {
 		if(tnode->submenu != NULL)
 		    free(tnode->submenu);
 		tnode->submenu_size = atoi((const char *)current->children->content);
-		tnode->submenu = malloc(tnode->submenu_size * sizeof(MenuNode));
+		tnode->submenu = calloc(tnode->submenu_size, sizeof(MenuNode*));
 	    }
 	}
 
@@ -327,6 +327,7 @@ void free_menu(MenuNode* menu)
 		    menu->submenu[i] = NULL;
 		}
 	    free(menu->submenu);
+	    menu->submenu = NULL;
 	}
 	/* Note that we don't need to set the menu->foo items to NULL */
 	/* because they are being deallocated here:                   */
@@ -348,7 +349,7 @@ void T4K_CreateOneLevelMenu(int index, int items, char** item_names, char** spri
 	menu->show_title = true;
     }
     menu->submenu_size = items + (trailer ? 1 : 0);
-    menu->submenu = (MenuNode**) malloc(menu->submenu_size * sizeof(MenuNode*));
+    menu->submenu = (MenuNode**) calloc(menu->submenu_size, sizeof(MenuNode*));
     for(i = 0; i < items; i++)
     {
 	menu->submenu[i] = create_empty_node();
@@ -414,6 +415,30 @@ void T4K_UnloadMenus(void)
     {
 	SDL_FreeSurface(next_arrow);
 	next_arrow = NULL;
+    }
+
+    if(prev_gray)
+    {
+	SDL_FreeSurface(prev_gray);
+	prev_gray = NULL;
+    }
+
+    if(next_gray)
+    {
+	SDL_FreeSurface(next_gray);
+	next_gray = NULL;
+    }
+
+    if(desc_prerendered)
+    {
+	SDL_FreeSurface(desc_prerendered);
+	desc_prerendered = NULL;
+    }
+
+    if(desc_panel)
+    {
+	SDL_FreeSurface(desc_panel);
+	desc_panel = NULL;
     }
 
     for(i = 0; i < N_OF_MENUS; i++)
@@ -535,6 +560,7 @@ int T4K_RunMenu(int index, bool return_choice, void (*draw_background)(), int (*
 		{
 		    /* user decided to quit the application (for example by closing the window) */
 		    case SDL_EVENT_QUIT:
+		    case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
 			{
 			    T4K_FreeSurfaceArray(menu_item_unselected, items);
 			    T4K_FreeSurfaceArray(menu_item_selected, items);

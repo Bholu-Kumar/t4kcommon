@@ -31,6 +31,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include <stdlib.h>
 #include <SDL3/SDL_thread.h>
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <objbase.h>
+#endif
+
 SDL_Thread *tts_thread;
 int text_to_speech_status;
 
@@ -45,13 +51,23 @@ int text_to_speech_status;
 void T4K_Tts_cancel(void);
 void T4K_Tts_wait(void);
 
-/* TTS annoncement should be in thread otherwise 
- * it will freez the game till announcemrnt finishes */
+/* TTS announcement should be in thread otherwise 
+ * it will freeze the game till announcement finishes */
 int SDLCALL tts_thread_func(void *arg)
 {
+#ifdef _WIN32
+	CoInitializeEx(NULL, COINIT_MULTITHREADED);
+#endif
+
 	espeak_POSITION_TYPE position_type = POS_CHARACTER;
 	tts_argument* recived = (tts_argument*)arg;
-	if (!recived) return 0;
+	if (!recived)
+	{
+#ifdef _WIN32
+		CoUninitialize();
+#endif
+		return 0;
+	}
 
 	fprintf(stderr,"\nSpeaking : %s - %d\n", recived->text, recived->mode);
 	fflush(stderr);
@@ -69,7 +85,11 @@ int SDLCALL tts_thread_func(void *arg)
 	fprintf(stderr, "espeak_Synth returned %d for '%s'\n", (int)err, recived->text);
 	fflush(stderr);
 	espeak_Synchronize();
+
 	free(recived);
+#ifdef _WIN32
+	CoUninitialize();
+#endif
 	return 1;
 }
 
@@ -96,22 +116,52 @@ void T4K_Tts_wait()
 //This function should be called at begining 
 int T4K_Tts_init()
 {
+    /* Ensure SDL audio subsystem is initialized before querying devices */
+    if (!SDL_WasInit(SDL_INIT_AUDIO))
+    {
+        if (!SDL_InitSubSystem(SDL_INIT_AUDIO))
+        {
+            fprintf(stderr, "T4K_Tts_init(): Failed to initialize SDL audio: %s\n", SDL_GetError());
+            text_to_speech_status = 0;
+            return 0;
+        }
+    }
+
+    /* Check if any audio playback device is present before attempting playback.
+     * Prevents crash in libpcaudio when running in headless environments / VMs without audio. */
+    int num_audio_devices = 0;
+    SDL_AudioDeviceID *devs = SDL_GetAudioPlaybackDevices(&num_audio_devices);
+    if (devs)
+    {
+        SDL_free(devs);
+    }
+    if (num_audio_devices <= 0)
+    {
+        fprintf(stderr, "T4K_Tts_init(): No audio playback device available; disabling TTS.\n");
+        text_to_speech_status = 0;
+        return 0;
+    }
+
     const char* path = NULL;
-#if defined(WIN32) || defined(_WIN32) || defined(BUILD_MINGW32)
-    path = ".";
-#else
     static char bundle_espeak_dir[1024];
     const char* base = SDL_GetBasePath();
     if (base) {
         snprintf(bundle_espeak_dir, sizeof(bundle_espeak_dir), "%sespeak-ng-data", base);
+#if defined(WIN32) || defined(_WIN32) || defined(BUILD_MINGW32)
+        DWORD attrs = GetFileAttributesA(bundle_espeak_dir);
+        if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+            path = base;
+        }
+#else
         if (access(bundle_espeak_dir, F_OK) == 0) {
             path = base;
         }
+#endif
     }
-    if (!path && access("espeak-ng-data", F_OK) == 0) {
+    if (!path) {
         path = ".";
     }
-#endif
+
 	if(espeak_Initialize(AUDIO_OUTPUT_PLAYBACK, 500, path, 0 ) == -1)
 	{
 		text_to_speech_status = 0;
@@ -144,9 +194,21 @@ int T4K_Tts_set_voice(char voice_name[]){
 }
 
 
+static SDL_Thread *active_tts_worker = NULL;
+static SDL_Mutex *tts_mutex = NULL;
+
 //Stop the speech if it is speaking
 void T4K_Tts_stop(){
 	espeak_Cancel();
+	if (tts_mutex)
+		SDL_LockMutex(tts_mutex);
+	if (active_tts_worker)
+	{
+		SDL_WaitThread(active_tts_worker, NULL);
+		active_tts_worker = NULL;
+	}
+	if (tts_mutex)
+		SDL_UnlockMutex(tts_mutex);
 }
 
 
@@ -198,20 +260,52 @@ void T4K_Tts_say(int rate,int pitch,int mode, const char* text, ...){
 	//Passing mode
 	data_to_pass->mode = mode;
 	
-	if (mode == INTERRUPT)
+	if (!tts_mutex)
+		tts_mutex = SDL_CreateMutex();
+
+	if (tts_mutex)
+		SDL_LockMutex(tts_mutex);
+
+	if (active_tts_worker)
 	{
-		T4K_Tts_cancel();
+		if (mode == INTERRUPT)
+		{
+			espeak_Cancel();
+		}
+		SDL_WaitThread(active_tts_worker, NULL);
+		active_tts_worker = NULL;
 	}
 
-	//Calling threaded function to say.	
-	SDL_Thread *th = SDL_CreateThread(tts_thread_func, "tts_worker", data_to_pass);
-	if (th)
-	{
-		SDL_DetachThread(th);
-	}
-	else
+	active_tts_worker = SDL_CreateThread(tts_thread_func, "tts_worker", data_to_pass);
+	if (!active_tts_worker)
 	{
 		free(data_to_pass);
+	}
+
+	if (tts_mutex)
+		SDL_UnlockMutex(tts_mutex);
+}	
+
+void T4K_Tts_cleanup(void)
+{
+	if (text_to_speech_status)
+	{
+		text_to_speech_status = 0;
+		espeak_Cancel();
+		if (tts_mutex)
+			SDL_LockMutex(tts_mutex);
+		if (active_tts_worker)
+		{
+			SDL_WaitThread(active_tts_worker, NULL);
+			active_tts_worker = NULL;
+		}
+		if (tts_mutex)
+		{
+			SDL_UnlockMutex(tts_mutex);
+			SDL_DestroyMutex(tts_mutex);
+			tts_mutex = NULL;
+		}
+		espeak_Terminate();
 	}
 }	
 
@@ -388,5 +482,6 @@ void T4K_Tts_say(int rate, int pitch, int mode, const char* text, ...) { (void)r
 void T4K_Tts_cancel(void) {}
 void T4K_Tts_wait(void) {}
 void T4K_Tts_set_status(int status) { (void)status; }
+void T4K_Tts_cleanup(void) {}
 
 #endif

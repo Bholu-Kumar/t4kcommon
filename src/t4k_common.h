@@ -303,6 +303,7 @@ void T4K_Tts_set_volume(int volume);
 void T4K_Tts_set_rate(int rate);
 void T4K_Tts_set_pitch(int pitch);
 void T4K_Tts_say(int rate,int pitch, int mode, const char* text, ...);
+void T4K_Tts_cleanup(void);
 
 
 
@@ -1944,6 +1945,16 @@ void T4K_AudioToggle( void );
 void T4K_AudioSetGlobalVolume( float gain );
 float T4K_AudioGetGlobalVolume( void );
 MIX_Mixer* T4K_GetAudioMixer( void );
+
+/* Independent music and sound-effects volume controls (0.0 – 1.0). */
+void  T4K_AudioSetMusicVolume( float gain );
+float T4K_AudioGetMusicVolume( void );
+void  T4K_AudioSetSfxVolume( float gain );
+float T4K_AudioGetSfxVolume( void );
+void  T4K_AudioMusicPause( void );
+void  T4K_AudioMusicResume( void );
+void  T4K_AudioCleanup( void );
+
 
 
 //=============================================================================
