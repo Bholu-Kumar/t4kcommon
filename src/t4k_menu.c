@@ -565,7 +565,10 @@ int T4K_RunMenu(int index, bool return_choice, void (*draw_background)(), int (*
 			    T4K_FreeSurfaceArray(menu_item_unselected, items);
 			    T4K_FreeSurfaceArray(menu_item_selected, items);
 			    if(desc_panel != NULL)
+			    {
 				SDL_FreeSurface(desc_panel);
+				desc_panel = NULL;
+			    }
 			    return QUIT;
 			}
 
@@ -1046,12 +1049,17 @@ int T4K_RunMenu(int index, bool return_choice, void (*draw_background)(), int (*
 			/* Announce the item again when page is scrolled or mouse hover*/
 		    if(loc >= 0 && loc < items)
             {
-    			if (menu->submenu[loc + menu->first_entry]->desc == NULL)
-	    			T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,INTERRUPT,"%s",
-		    		_(menu->submenu[loc + menu->first_entry]->title));
-			    else
-				    T4K_Tts_say(DEFAULT_VALUE,DEFAULT_VALUE,INTERRUPT,"%s. %s",
-    				_(menu->submenu[loc + menu->first_entry]->title),_(menu->submenu[loc + menu->first_entry]->desc));
+				char *desc = menu->submenu[loc + menu->first_entry]->desc;
+				char *trans_desc = (desc && desc[0] != '\0') ? _(desc) : NULL;
+				if (trans_desc && strncmp(trans_desc, "Project-Id-Version", 18) == 0)
+					trans_desc = NULL;
+
+				if (trans_desc && trans_desc[0] != '\0')
+					T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, "%s. %s",
+					_(menu->submenu[loc + menu->first_entry]->title), trans_desc);
+				else
+					T4K_Tts_say(DEFAULT_VALUE, DEFAULT_VALUE, INTERRUPT, "%s",
+					_(menu->submenu[loc + menu->first_entry]->title));
             }
 			/* whole menu will be redrawn so there is no need to draw anything now */
 			break;
@@ -1448,8 +1456,12 @@ void T4K_PrerenderAll()
     if(stop_button)
 	SDL_FreeSurface(stop_button);
     stop_button = T4K_LoadImageOfBoundingBox(stop_path, IMG_ALPHA, stop_rect.w, stop_rect.h);
-    /* move button to the right */
-    stop_rect.x = T4K_GetScreen()->w - stop_button->w;
+    if(stop_button)
+    {
+	stop_rect.w = stop_button->w;
+	stop_rect.h = stop_button->h;
+	stop_rect.x = T4K_GetScreen()->w - stop_button->w;
+    }
 
     T4K_SetRect(&prev_rect, prev_pos);
     if(prev_arrow)

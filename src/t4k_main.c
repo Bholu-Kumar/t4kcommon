@@ -103,6 +103,9 @@ int InitT4KCommon(int debug_flags)
 
 void CleanupT4KCommon(void)
 {
+    // Terminate TTS and free voice tables first:
+    T4K_Tts_cleanup();
+
     T4K_AudioCleanup();
     // Close the audio mixer.
     Mix_CloseAudio();
@@ -110,8 +113,6 @@ void CleanupT4KCommon(void)
     T4K_UnloadMenus();
     // Unload SDL_Pango or SDL_ttf:
     T4K_Cleanup_SDL_Text();
-    // Terminate TTS and free voice tables:
-    T4K_Tts_cleanup();
     
 #if defined(T4K_HAS_SDL3_NET) && T4K_HAS_SDL3_NET
     /* Quit networking if appropriate: */
